@@ -1,2 +1,8 @@
-# 2026-yazilim-sektoru-maaslari
-2026 Yazılım Sektörü ve Yazılımcı Maaşları
+# YAZILIM SEKTÖRÜ MAAŞLARI | 2026
+
+Bu anket [Önceki Yazılımcı](https://x.com/oncekiyazilimci) tarafından düzenlenmiştir.
+
+Anketin kişi bazlı dökümü repo'da bulunmaktadır.
+
+* https://x.com/oncekiyazilimci
+* https://www.linkedin.com/in/oncekiyazilimci/
