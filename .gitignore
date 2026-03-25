@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+
+# Generated analysis data
+public/data/analysis-summary.json
+public/data/survey-processed.json
+
+# Local tooling caches
+.vite/
+.DS_Store
+*.log
+
+# Environment files
+.env
+.env.*
+!.env.example
