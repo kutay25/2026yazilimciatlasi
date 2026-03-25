@@ -108,6 +108,12 @@ button {
   color: rgba(22, 50, 69, 0.72);
 }
 
+.hero-sub-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .hero h1 {
   margin: 0;
   max-width: 18ch;
@@ -125,12 +131,83 @@ button {
   color: var(--ink-soft);
 }
 
+.hero-attribution {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.hero-attribution-label {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 13.5px;
+  letter-spacing: 0.095em;
+  text-transform: uppercase;
+  color: rgba(22, 50, 69, 0.52);
+}
+
+.hero-attribution-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 6px;
+}
+
+.hero-attribution-link {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 13.5px;
+  letter-spacing: 0.06em;
+  font-weight: 500;
+  line-height: 1.45;
+  color: rgba(22, 50, 69, 0.52);
+  text-decoration: none;
+}
+
+.hero-attribution-separator {
+  color: rgba(22, 50, 69, 0.3);
+  font-size: 13px;
+}
+
+.hero-attribution a,
+.hero-reference-strip a {
+  color: rgba(22, 50, 69, 0.52);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.hero-attribution a:hover,
+.hero-reference-strip a:hover {
+  color: rgba(22, 50, 69, 0.72);
+  border-bottom-color: rgba(22, 50, 69, 0.3);
+}
+
 .hero-context {
   max-width: 58ch;
   padding: 12px 14px;
   border: 1px solid var(--line);
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.5);
+}
+
+.hero-reference-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+}
+
+.hero-reference-chip,
+.hero-reference-date {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11.75px;
+  letter-spacing: 0.075em;
+  line-height: 1.4;
+  text-transform: uppercase;
+  color: rgba(22, 50, 69, 0.42);
+}
+
+.hero-reference-date {
+  color: rgba(22, 50, 69, 0.42);
 }
 
 .hero-metrics {
@@ -610,6 +687,10 @@ button {
 .query-lab {
   display: grid;
   gap: 14px;
+}
+
+.query-metric-tabs {
+  margin-bottom: 12px;
 }
 
 .query-textarea {

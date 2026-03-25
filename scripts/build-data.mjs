@@ -102,10 +102,11 @@ const CURRENCY_LOOKUP = {
 };
 const REFERENCE_FX_RATES = {
   TRY: 1,
-  USD: 38.4,
-  EUR: 41.7,
-  GBP: 49.2,
+  USD: 44.3756,
+  EUR: 51.5047,
+  GBP: 59.5052,
 };
+const REFERENCE_FX_FETCHED_AT = "2026-03-26";
 const LOCATION_ALIASES = {
   İçel: "Mersin",
   Hakkari: "Hakkâri",
@@ -118,28 +119,28 @@ const GEOJSON_NAME_ALIASES = {
 };
 const QUERY_IDEAS = [
   {
-    id: "leadership-premium",
-    title: "Yönetim patikası gerçekten ne kadar ödüyor?",
+    id: "seniority-pay-lift",
+    title: "Kıdem maaşı ne kadar artırıyor?",
     prompt:
-      "group role, seniority | filter currency=TRY | metric median(salary) | sort -median | min_count 20",
+      "filter currency=TRY | group seniority | metric median(salary), p75(salary), count() | sort -median_salary | min_count 30",
   },
   {
-    id: "city-vs-mode",
-    title: "Şehir mi daha önemli, çalışma modeli mi?",
+    id: "remote-vs-city-modes",
+    title: "Türkiye genelinde uzaktan çalışmak mı, şehirlerde hibrit veya ofisten çalışmak mı daha iyi ödüyor?",
     prompt:
-      "filter currency=TRY | group province, workMode | metric median(salary), count() | min_count 12",
+      "filter currency=TRY | group province, workMode | metric median(salary), p75(salary), count() | min_count 20",
   },
   {
-    id: "sector-size-ladder",
-    title: "Hangi sektörler büyüklükle birlikte daha iyi fiyatlıyor?",
+    id: "company-size-vs-seniority",
+    title: "Şirket büyüklüğü maaşı ne kadar etkiliyor?",
     prompt:
-      "filter currency=TRY | group companyType, companySize | metric median(salary) | min_count 15",
+      "filter currency=TRY | group companySize, seniority | metric median(salary), p75(salary), count() | sort -median_salary | min_count 20",
   },
   {
-    id: "ai-adoption",
-    title: "AI araçları kimlerde yoğunlaşıyor?",
+    id: "ai-usage-vs-seniority",
+    title: "AI kullanımı maaşı etkiliyor mu?",
     prompt:
-      "group roleFamily, seniority | metric share(hasAiTools), count() | sort -share(hasAiTools) | min_count 20",
+      "group hasAiTools | metric mean(salary), median(salary), p75(salary), count() | min_count 20",
   },
 ];
 
@@ -528,6 +529,7 @@ function buildSummary(rows, provinceMeta) {
 
   return {
     generatedAt: new Date().toISOString(),
+    referenceFxFetchedAt: REFERENCE_FX_FETCHED_AT,
     referenceFxRates: REFERENCE_FX_RATES,
     totals: {
       responses: rows.length,
@@ -626,13 +628,13 @@ function buildSummary(rows, provinceMeta) {
     },
     methodology: {
       salaryRule:
-        "Bucketed salaries are visualized via numeric midpoints. Open-ended 400.000+ answers are treated as 425.000 for comparability.",
+        "Aralıklı maaş yanıtları sayısal orta noktalarla görselleştirilir. Açık uçlu 400.000+ yanıtları karşılaştırılabilirlik için 425.000 kabul edilir.",
       fxRule:
-        "Cross-currency charts rely on editable reference FX rates and are explicitly modelling views, not exact compensation conversions.",
+        "Farklı para birimlerini içeren grafikler düzenlenebilir referans kurları kullanır; bu görünüm kesin ücret dönüşümü değil, modelleme amaçlı bir karşılaştırmadır.",
       locationRule:
-        "Turkey map views use domestic province-level answers. Abroad responses stay available separately at country level.",
+        "Türkiye haritası yalnızca yurt içi il bazlı yanıtları kullanır. Yurt dışı yanıtları ise ülke düzeyinde ayrı olarak erişilebilir kalır.",
       sampleRule:
-        "Many visuals suppress or mute tiny groups so that low-sample noise does not dominate the narrative.",
+        "Pek çok görselde çok küçük gruplar bastırılır veya geri planda bırakılır; böylece düşük örneklem gürültüsü anlatının önüne geçmez.",
     },
     queryIdeas: QUERY_IDEAS,
   };

@@ -33,6 +33,8 @@ import {
   TAB_ITEMS,
   WORK_MODE_ORDER,
   formatCompact,
+  formatConversion,
+  formatDateLabel,
   formatInteger,
   formatMoney,
   formatPercent,
@@ -57,7 +59,7 @@ const COMPANY_SIZE_ORDER = [
 ];
 
 const DEFAULT_QUERY =
-  "filter currency=TRY | group roleFamily, seniority | metric median(salary), count() | sort -median_salary | min_count 20";
+  "filter currency=TRY | group seniority | metric median(salary), count() | sort -median_salary | min_count 30";
 
 type MapMetric = "median" | "p75" | "count";
 
@@ -127,6 +129,27 @@ function getSliceScopeLabel(filters: FilterState) {
   return `Aktif filtre kesiti, ${geography}`;
 }
 
+function buildReferenceFxNote(summary: AppData["summary"]) {
+  const rateText = getReferenceFxEntries(summary)
+    .map((entry) => `1 ${entry.code} = ${entry.value}`)
+    .join(" · ");
+
+  return `${rateText} · Kur tarihi: ${formatDateLabel(summary.referenceFxFetchedAt)}`;
+}
+
+function getReferenceFxEntries(summary: AppData["summary"]) {
+  const orderedRates: Array<keyof AppData["summary"]["referenceFxRates"]> = [
+    "USD",
+    "EUR",
+    "GBP",
+  ];
+
+  return orderedRates.map((code) => ({
+    code,
+    value: formatConversion(summary.referenceFxRates[code]),
+  }));
+}
+
 function App() {
   const [data, setData] = useState<AppData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -136,6 +159,7 @@ function App() {
   const [mapMetric, setMapMetric] = useState<MapMetric>("median");
   const [mapMinCount, setMapMinCount] = useState(8);
   const [queryText, setQueryText] = useState(DEFAULT_QUERY);
+  const [selectedQueryMetric, setSelectedQueryMetric] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -148,6 +172,7 @@ function App() {
         setData(payload);
         const firstPreset = payload.summary.queryIdeas[0]?.prompt;
         if (firstPreset) {
+          setSelectedQueryMetric(null);
           setQueryText(firstPreset);
         }
       })
@@ -445,14 +470,17 @@ function App() {
     return <LoadingState />;
   }
 
-  const queryLabelField =
-    queryExecution.result?.groupFields[0] ?? "label";
+  const queryLabelField = queryExecution.result?.groupFields[0] ?? "label";
+  const queryMetricOptions = queryExecution.result?.metricFields ?? [];
   const queryMetricField =
-    queryExecution.result?.metricFields[0] ?? "count";
+    selectedQueryMetric && queryMetricOptions.includes(selectedQueryMetric)
+      ? selectedQueryMetric
+      : queryMetricOptions[0] ?? "count";
 
   return (
     <div className="page-shell">
       <Hero
+        summary={data.summary}
         totalResponses={data.summary.totals.responses}
         filteredResponses={deferredRows.length}
         overallMedian={kpis.median}
@@ -904,6 +932,7 @@ function App() {
                       onClick={() => {
                         startTransition(() => {
                           setActiveTab("lab");
+                          setSelectedQueryMetric(null);
                           setQueryText(idea.prompt);
                         });
                       }}
@@ -930,7 +959,10 @@ function App() {
                   <textarea
                     className="query-textarea"
                     value={queryText}
-                    onChange={(event) => setQueryText(event.target.value)}
+                    onChange={(event) => {
+                      setSelectedQueryMetric(null);
+                      setQueryText(event.target.value);
+                    }}
                     spellCheck={false}
                   />
                   <div className="query-presets">
@@ -939,7 +971,10 @@ function App() {
                         key={idea.id}
                         className="ghost-button"
                         type="button"
-                        onClick={() => setQueryText(idea.prompt)}
+                        onClick={() => {
+                          setSelectedQueryMetric(null);
+                          setQueryText(idea.prompt);
+                        }}
                       >
                         {idea.title}
                       </button>
@@ -962,15 +997,28 @@ function App() {
 
               <ChartCard
                 title="Sorgu çıktısı"
-                kicker="İlk metrik grafiğe dökülür"
+                kicker="Metrikler arasında geçiş yapılabilir"
                 body="Laboratuvar görünümü, üstteki filtreleri otomatik uygular; yani her sorgu o aktif kesit üzerinde çalışır."
               >
                 {queryExecution.result ? (
                   <>
+                    {queryMetricOptions.length > 1 && (
+                      <div className="query-metric-tabs">
+                        <SegmentedToggle
+                          items={queryMetricOptions.map((field) => ({
+                            id: field,
+                            label: formatQueryFieldLabel(field),
+                          }))}
+                          activeId={queryMetricField}
+                          onChange={(value) => setSelectedQueryMetric(value)}
+                        />
+                      </div>
+                    )}
                     <ReactECharts
                       {...chartRuntimeProps}
                       option={buildQueryChartOption(
                         queryExecution.result.rows,
+                        queryExecution.result.groupFields,
                         queryLabelField,
                         queryMetricField,
                         { salaryMode: filters.salaryMode },
@@ -1066,6 +1114,7 @@ function App() {
 }
 
 function Hero(props: {
+  summary: AppData["summary"];
   totalResponses: number;
   filteredResponses: number;
   overallMedian: number | null;
@@ -1076,16 +1125,58 @@ function Hero(props: {
   sliceScopeLabel: string;
   provinces: number;
 }) {
+  const attributionRepoUrl =
+    "https://github.com/oncekiyazilimci/2026-yazilim-sektoru-maaslari";
+  const attributionTwitterUrl = "https://x.com/oncekiyazilimci";
+  const referenceFxEntries = getReferenceFxEntries(props.summary);
+
   return (
     <header className="hero">
       <div className="hero-copy">
-        <span className="hero-kicker">2026 yazılım sektörü maaş atlası</span>
+        {/* <span className="hero-kicker">2026 Yazılım Sektörü Maaş Atlası</span> */}
         <h1>2026 Yazılımcı Maaş Atlası</h1>
         <p className="hero-context">
-          Şu an görülen kartlar {props.sliceScopeLabel.toLowerCase()} için hesaplanır. Ücret modu:
-          {" "}
+          Şu an görülen kartlar {props.sliceScopeLabel.toLowerCase()} için hesaplanır. 
+          <br/>Ücret modu: {" "}
           <strong>{getSalaryModeTitle(props.salaryMode)}</strong>.
         </p>
+        <div className="hero-sub-lines">
+          <div className="hero-attribution">
+            <span className="hero-attribution-label">Kaynak:</span>
+            <div className="hero-attribution-links">
+              <a
+                className="hero-attribution-link"
+                href={attributionRepoUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                GitHub Veriseti
+              </a>
+              <span className="hero-attribution-separator">·</span>
+              <span className="hero-attribution-link">Anketi derleyen</span>
+              <a
+                className="hero-attribution-link"
+                href={attributionTwitterUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                @oncekiyazilimci
+              </a>
+              <span className="hero-attribution-link">'ya teşekkürler</span>
+            </div>
+          </div>
+          <div className="hero-reference-strip" aria-label="Referans kurlar">
+            {referenceFxEntries.map((entry, index) => (
+              <span key={entry.code} className="hero-reference-chip">
+                {index > 0 && "· "}
+                {`1 ${entry.code} = ${entry.value}`}
+              </span>
+            ))}
+            <span className="hero-reference-date">
+              {`· Kur tarihi: ${formatDateLabel(props.summary.referenceFxFetchedAt)}`}
+            </span>
+          </div>
+        </div>
       </div>
       <div className="hero-metrics">
         <div>

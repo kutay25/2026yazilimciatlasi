@@ -84,6 +84,7 @@ export interface QueryIdea {
 
 export interface AnalysisSummary {
   generatedAt: string;
+  referenceFxFetchedAt: string;
   referenceFxRates: Record<CurrencyCode, number>;
   totals: {
     responses: number;
@@ -254,6 +255,7 @@ export const QUERY_FIELD_LABELS: Record<string, string> = {
   province: "İl",
   country: "Ülke",
   seniority: "Seviye",
+  hasAiTools: "AI kullanımı",
   role: "Rol",
   roleFamily: "Rol ailesi",
   experience: "Deneyim",
@@ -285,7 +287,11 @@ export async function loadAppData(): Promise<AppData> {
 
   return { rows, summary, turkeyGeoJson };
 }
-
+const conversionFormatter = new Intl.NumberFormat("tr-TR", {
+  style: "currency",
+  currency: "TRY",
+  maximumFractionDigits: 2,
+});
 const moneyFormatter = new Intl.NumberFormat("tr-TR", {
   style: "currency",
   currency: "TRY",
@@ -299,6 +305,12 @@ const integerFormatter = new Intl.NumberFormat("tr-TR");
 const percentFormatter = new Intl.NumberFormat("tr-TR", {
   style: "percent",
   maximumFractionDigits: 1,
+});
+const dateFormatter = new Intl.DateTimeFormat("tr-TR", {
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+  timeZone: "Europe/Istanbul",
 });
 
 export function formatMoney(value: number | null | undefined) {
@@ -327,6 +339,16 @@ export function formatPercent(value: number | null | undefined) {
     return "—";
   }
   return percentFormatter.format(value);
+}
+
+export function formatConversion(value: number | null | undefined) {
+  if (value === null || value === undefined) {
+    return "—";
+  }
+  return conversionFormatter.format(value);
+}
+export function formatDateLabel(value: string) {
+  return dateFormatter.format(new Date(value));
 }
 
 export function formatSeniorityLabel(value: string) {

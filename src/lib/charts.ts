@@ -3,6 +3,7 @@ import {
   formatInteger,
   formatMoney,
   formatPercent,
+  formatQueryFieldLabel,
   formatRoleFamilyLabel,
   formatRoleFamilyShortLabel,
   formatSeniorityLabel,
@@ -84,7 +85,7 @@ function normalizeVisualRange(values: number[]) {
 
 function axisLabelStyle() {
   return {
-    color: "#355468",
+    color: "#111111",
     fontSize: 11,
   };
 }
@@ -129,6 +130,20 @@ function formatAxisCategory(value: string, short = false) {
 function formatHeatmapLabel(params: any) {
   const value = params.data?.[2];
   return typeof value === "number" ? `${Math.round(value / 1000)}k` : "—";
+}
+
+function formatHeatmapLabelRich(
+  params: any,
+  visualRange: { min: number; max: number },
+) {
+  const value = params.data?.[2];
+  if (typeof value !== "number") {
+    return "{light|—}";
+  }
+
+  const threshold = visualRange.min + (visualRange.max - visualRange.min) * 0.62;
+  const tone = value >= threshold ? "light" : "dark";
+  return `{${tone}|${formatHeatmapLabel(params)}}`;
 }
 
 export function buildHistogramOption(
@@ -405,7 +420,7 @@ export function buildHeatmapOption(
       left: "center",
       bottom: -4,
       text: ["Yüksek medyan", "Düşük medyan"],
-      textStyle: { color: "#355468", fontSize: 11 },
+      textStyle: { color: "#111111", fontSize: 11, fontWeight: 600 },
       inRange: {
         color: ["#f4efe5", "#ead3a1", "#d79246", "#8a4d2c", "#163245"],
       },
@@ -420,13 +435,26 @@ export function buildHeatmapOption(
           entry.count,
         ]),
         label: {
-          show: false,
-          formatter: formatHeatmapLabel,
-          color: "#173246",
+          show: true,
+          formatter: (params: any) => formatHeatmapLabelRich(params, visualRange),
           fontSize: 12,
-          fontWeight: 700,
-          textBorderColor: "rgba(255, 250, 242, 0.82)",
-          textBorderWidth: 2,
+          fontWeight: 800,
+          rich: {
+            dark: {
+              color: "#173246",
+              textBorderColor: "rgba(255, 250, 242, 0.98)",
+              textBorderWidth: 3.5,
+              textShadowColor: "rgba(255, 250, 242, 0.92)",
+              textShadowBlur: 8,
+            },
+            light: {
+              color: "#173246",
+              textBorderColor: "rgba(255, 250, 242, 0.96)",
+              textBorderWidth: 4.5,
+              textShadowColor: "rgba(255, 250, 242, 0.98)",
+              textShadowBlur: 10,
+            },
+          },
         },
         itemStyle: {
           borderColor: "rgba(255, 250, 242, 0.9)",
@@ -435,7 +463,7 @@ export function buildHeatmapOption(
         emphasis: {
           label: {
             show: true,
-            formatter: formatHeatmapLabel,
+            formatter: (params: any) => formatHeatmapLabelRich(params, visualRange),
           },
           itemStyle: {
             shadowBlur: 10,
@@ -491,7 +519,8 @@ export function buildProvinceMapOption(
       orient: "horizontal",
       left: "center",
       bottom: 0,
-      textStyle: { color: "#355468" },
+      // textStyle: { color: "#355468" },
+      textStyle: { color: "#111111", fontWeight: 600 },
       inRange: {
         color: ["#efe4cf", "#efd37a", "#d58d4e", "#163245"],
       },
@@ -581,6 +610,7 @@ export function buildScatterOption(
 
 export function buildQueryChartOption(
   rows: Array<Record<string, string | number | null>>,
+  groupFields: string[],
   labelField: string,
   metricField: string,
   context: { salaryMode: "try" | "fx" },
@@ -591,9 +621,186 @@ export function buildQueryChartOption(
       "Bu sorgu ve aktif filtreler birlikte gösterilecek yeterli satır üretmedi.",
     );
   }
-  const labels = rows.map((row) => String(row[labelField] ?? "—"));
-  const values = rows.map((row) => (typeof row[metricField] === "number" ? (row[metricField] as number) : 0));
   const isShare = metricField.startsWith("share_");
+  const metricFormatter = isShare ? formatPercent : formatMoney;
+  const metricLabel = formatQueryFieldLabel(metricField);
+
+  if (groupFields.length === 2) {
+    const [primaryField, secondaryField] = groupFields;
+    const primaryValues = [...new Set(rows.map((row) => String(row[primaryField] ?? "—")))];
+    const secondaryValues = [...new Set(rows.map((row) => String(row[secondaryField] ?? "—")))];
+
+    if (secondaryValues.length <= 5 && primaryValues.length <= 12) {
+      const series = secondaryValues.map((secondaryValue, seriesIndex) => ({
+        name: formatAxisCategory(secondaryValue),
+        type: "bar" as const,
+        data: primaryValues.map((primaryValue) => {
+          const entry = rows.find(
+            (row) =>
+              String(row[primaryField] ?? "—") === primaryValue &&
+              String(row[secondaryField] ?? "—") === secondaryValue,
+          );
+          return entry && typeof entry[metricField] === "number" ? (entry[metricField] as number) : null;
+        }),
+        itemStyle: {
+          borderRadius: [0, 6, 6, 0],
+          color: [CHART_COLORS.ink, CHART_COLORS.teal, CHART_COLORS.copper, CHART_COLORS.amber, CHART_COLORS.rose][seriesIndex % 5],
+        },
+      }));
+
+      return {
+        tooltip: {
+          ...tooltipBase(),
+          trigger: "item",
+          formatter: (params: any) => {
+            const primaryValue = primaryValues[params.dataIndex];
+            const secondaryValue = secondaryValues[params.seriesIndex];
+            const entry = rows.find(
+              (row) =>
+                String(row[primaryField] ?? "—") === primaryValue &&
+                String(row[secondaryField] ?? "—") === secondaryValue,
+            );
+            const sampleSize = entry && typeof entry.count === "number" ? (entry.count as number) : null;
+            return tooltipRows(
+              `${primaryValue} / ${formatAxisCategory(secondaryValue)}`,
+              [
+                `${metricLabel}: ${metricFormatter(typeof params.value === "number" ? params.value : null)}`,
+                `Örneklem: ${formatInteger(sampleSize)}`,
+                `Kapsam: Aktif filtre kesiti`,
+                ...(isShare ? [] : [`Ücret türü: ${formatScopeLabel(context.salaryMode)}`]),
+              ],
+            );
+          },
+        },
+        legend: {
+          top: 0,
+          textStyle: { color: "#111111", fontSize: 11, fontWeight: 600 },
+        },
+        grid: { left: 16, right: 16, top: 48, bottom: 16, containLabel: true },
+        xAxis: {
+          type: "value",
+          splitLine: { lineStyle: { color: "rgba(22, 50, 69, 0.1)" } },
+          axisLabel: axisLabelStyle(),
+        },
+        yAxis: {
+          type: "category",
+          data: primaryValues.map((value) => formatAxisCategory(value)),
+          axisLabel: axisLabelStyle(),
+          axisLine: { show: false },
+          axisTick: { show: false },
+          name: formatQueryFieldLabel(primaryField),
+          nameLocation: "middle",
+          nameGap: 80,
+        },
+        series,
+      };
+    }
+
+    const heatmapData = rows.map((row) => {
+      const primaryValue = String(row[primaryField] ?? "—");
+      const secondaryValue = String(row[secondaryField] ?? "—");
+      return [
+        secondaryValues.indexOf(secondaryValue),
+        primaryValues.indexOf(primaryValue),
+        typeof row[metricField] === "number" ? (row[metricField] as number) : null,
+        typeof row.count === "number" ? (row.count as number) : null,
+      ];
+    });
+    const values = heatmapData
+      .map((entry) => entry[2])
+      .filter((value): value is number => typeof value === "number");
+    const visualRange = normalizeVisualRange(values);
+
+    return {
+      tooltip: {
+        ...tooltipBase(),
+        formatter: (params: any) => {
+          const [secondaryIndex, primaryIndex, value, count] = params.data ?? [];
+          return tooltipRows(
+            `${primaryValues[primaryIndex]} / ${formatAxisCategory(secondaryValues[secondaryIndex])}`,
+            [
+              `${metricLabel}: ${metricFormatter(typeof value === "number" ? value : null)}`,
+              `Örneklem: ${formatInteger(typeof count === "number" ? count : null)}`,
+              `Kapsam: Aktif filtre kesiti`,
+              ...(isShare ? [] : [`Ücret türü: ${formatScopeLabel(context.salaryMode)}`]),
+            ],
+          );
+        },
+      },
+      grid: { left: 90, right: 16, top: 20, bottom: 24 },
+      xAxis: {
+        type: "category",
+        data: secondaryValues.map((value) => formatAxisCategory(value, true)),
+        splitArea: { show: true },
+        axisLabel: axisLabelStyle(),
+        axisLine: { lineStyle: { color: "#cbbda8" } },
+        name: formatQueryFieldLabel(secondaryField),
+        nameLocation: "middle",
+        nameGap: 34,
+      },
+      yAxis: {
+        type: "category",
+        data: primaryValues.map((value) => formatAxisCategory(value)),
+        splitArea: { show: true },
+        axisLabel: axisLabelStyle(),
+        axisLine: { lineStyle: { color: "#cbbda8" } },
+        name: formatQueryFieldLabel(primaryField),
+        nameLocation: "middle",
+        nameGap: 70,
+      },
+      visualMap: {
+        min: visualRange.min,
+        max: visualRange.max,
+        show: true,
+        orient: "horizontal",
+        left: "center",
+        bottom: -4,
+        text: [`Yüksek ${metricLabel.toLowerCase()}`, `Düşük ${metricLabel.toLowerCase()}`],
+        textStyle: { color: "#111111", fontSize: 11, fontWeight: 600 },
+        inRange: {
+          color: ["#f4efe5", "#ead3a1", "#d79246", "#8a4d2c", "#163245"],
+        },
+      },
+      series: [
+        {
+          type: "heatmap",
+          data: heatmapData,
+          label: {
+            show: false,
+            formatter: (params: any) => {
+              const value = params.data?.[2];
+              if (typeof value !== "number") {
+                return "—";
+              }
+              return isShare ? formatPercent(value) : `${Math.round(value / 1000)}k`;
+            },
+            color: "#173246",
+            fontSize: 12,
+            fontWeight: 700,
+            textBorderColor: "rgba(255, 250, 242, 0.82)",
+            textBorderWidth: 2,
+          },
+          itemStyle: {
+            borderColor: "rgba(255, 250, 242, 0.9)",
+            borderWidth: 1,
+          },
+          emphasis: {
+            label: {
+              show: true,
+            },
+          },
+        },
+      ],
+    };
+  }
+
+  const labels = rows.map((row) => {
+    if (groupFields.length > 1) {
+      return groupFields.map((field) => String(row[field] ?? "—")).join(" · ");
+    }
+    return String(row[labelField] ?? "—");
+  });
+  const values = rows.map((row) => (typeof row[metricField] === "number" ? (row[metricField] as number) : 0));
   return buildBarOption(
     labels.map((label, index) => ({
       label,
@@ -603,9 +810,9 @@ export function buildQueryChartOption(
     {
       color: CHART_COLORS.ink,
       horizontal: true,
-      valueFormatter: isShare ? formatPercent : formatMoney,
+      valueFormatter: metricFormatter,
       salaryMode: isShare ? undefined : context.salaryMode,
-      metricLabel: isShare ? "Pay" : "Metrik",
+      metricLabel,
       metricHelp: "Sorgu sonucu, üstteki aktif filtrelere göre hesaplanır.",
     },
   );

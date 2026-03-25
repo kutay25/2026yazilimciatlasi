@@ -46,7 +46,7 @@ export interface HistogramBin {
 }
 
 export const DEFAULT_FILTERS: FilterState = {
-  salaryMode: "try",
+  salaryMode: "fx",
   geographyScope: "domestic",
   aiScope: "all",
   seniorities: [...SENIORITY_ORDER],
@@ -59,6 +59,7 @@ export const FIELD_ACCESSORS: Record<string, (row: SurveyRow) => string | null> 
   province: (row) => row.province,
   country: (row) => row.country,
   seniority: (row) => row.seniority,
+  hasAiTools: (row) => (row.hasAiTools ? "AI kullanan" : "AI kullanmayan"),
   role: (row) => row.role,
   roleFamily: (row) => row.roleFamily,
   experience: (row) => row.experienceBand,
