@@ -28,7 +28,6 @@ import {
 } from "./lib/charts";
 import {
   EXPERIENCE_ORDER,
-  ROLE_FAMILY_LABELS,
   ROLE_FAMILY_ORDER,
   SENIORITY_ORDER,
   TAB_ITEMS,
@@ -37,6 +36,10 @@ import {
   formatInteger,
   formatMoney,
   formatPercent,
+  formatQueryFieldLabel,
+  formatRoleFamilyLabel,
+  formatSeniorityLabel,
+  formatWorkModeLabel,
   loadAppData,
   type AppData,
   type TabId,
@@ -82,12 +85,17 @@ function toggleValue(current: string[], value: string) {
   return [...current, value];
 }
 
-function formatRoleFamily(value: string) {
-  return ROLE_FAMILY_LABELS[value] ?? value;
-}
-
 function formatMetricValue(field: string, value: string | number | null) {
   if (typeof value !== "number") {
+    if (field === "roleFamily") {
+      return formatRoleFamilyLabel(String(value ?? "—"));
+    }
+    if (field === "workMode") {
+      return formatWorkModeLabel(String(value ?? "—"));
+    }
+    if (field === "seniority") {
+      return formatSeniorityLabel(String(value ?? "—"));
+    }
     return String(value ?? "—");
   }
   if (field.startsWith("share_")) {
@@ -97,6 +105,26 @@ function formatMetricValue(field: string, value: string | number | null) {
     return formatInteger(value);
   }
   return formatMoney(value);
+}
+
+function getSalaryModeTitle(salaryMode: FilterState["salaryMode"]) {
+  return salaryMode === "fx" ? "Referans TRY karşılığı" : "Doğrudan TRY";
+}
+
+function getSalaryModeExplanation(salaryMode: FilterState["salaryMode"]) {
+  return salaryMode === "fx"
+    ? "Farklı para birimlerindeki yanıtlar referans kurla TRY karşılığına çevrilir."
+    : "Yalnızca doğrudan TRY yanıtları kullanılır.";
+}
+
+function getSliceScopeLabel(filters: FilterState) {
+  const geography =
+    filters.geographyScope === "domestic"
+      ? "yurt içi"
+      : filters.geographyScope === "abroad"
+        ? "yurt dışı"
+        : "tüm coğrafya";
+  return `Aktif filtre kesiti, ${geography}`;
 }
 
 function App() {
@@ -295,8 +323,8 @@ function App() {
       mapMetric === "count"
         ? "Yanıt hacmi"
         : mapMetric === "p75"
-          ? "Ust ceyrek gelir"
-          : "Medyan gelir";
+          ? "Üst çeyrek ücret"
+          : "Medyan ücret";
     const formatter = mapMetric === "count" ? formatInteger : formatMoney;
     return buildProvinceMapOption(
       provinceStats.map((entry) => ({
@@ -312,8 +340,12 @@ function App() {
       })),
       metricLabel,
       formatter,
+      {
+        salaryMode: filters.salaryMode,
+        mapScopeLabel: "Aktif filtre kesitindeki, il bilgisi olan yurt içi yanıtlar",
+      },
     );
-  }, [mapMetric, provinceStats]);
+  }, [filters.salaryMode, mapMetric, provinceStats]);
 
   const focusInsights = useMemo(() => {
     const topRoleFamily = aggregateRows(deferredRows, ["roleFamily"], filters.salaryMode, 20)[0];
@@ -322,23 +354,23 @@ function App() {
     return [
       {
         title: "Rol ailesi tavanı",
-        value: topRoleFamily ? formatRoleFamily(topRoleFamily.key) : "—",
+        value: topRoleFamily ? formatRoleFamilyLabel(topRoleFamily.key) : "—",
         detail: topRoleFamily
-          ? `${formatMoney(topRoleFamily.median)} medyan, ${formatInteger(topRoleFamily.count)} yanit`
+          ? `${formatMoney(topRoleFamily.median)} medyan, n=${formatInteger(topRoleFamily.count)}`
           : "Yeterli veri yok",
       },
       {
         title: "Haritada zirve",
         value: topProvince?.province ?? "—",
         detail: topProvince
-          ? `${formatMoney(topProvince.median)} medyan, ${formatInteger(topProvince.count)} yanit`
+          ? `${formatMoney(topProvince.median)} medyan, n=${formatInteger(topProvince.count)}`
           : "Yeterli veri yok",
       },
       {
-        title: "Sektor premiumu",
+        title: "En yüksek sektör farkı",
         value: topSector?.key ?? "—",
         detail: topSector
-          ? `${formatMoney(topSector.median)} medyan, ${formatInteger(topSector.count)} yanit`
+          ? `${formatMoney(topSector.median)} medyan, n=${formatInteger(topSector.count)}`
           : "Yeterli veri yok",
       },
     ];
@@ -386,21 +418,21 @@ function App() {
   );
   const activeFilterSummary = useMemo(
     () => [
-      filters.salaryMode === "try" ? "TRY odagi" : "FX model",
+      getSalaryModeTitle(filters.salaryMode),
       filters.geographyScope === "domestic"
-        ? "Turkiye"
+        ? "Kapsam: Türkiye"
         : filters.geographyScope === "abroad"
-          ? "Yurtdisi"
-          : "Tum cografya",
+          ? "Kapsam: Yurt dışı"
+          : "Kapsam: Tüm coğrafya",
       filters.aiScope === "all"
-        ? "AI: hepsi"
+        ? "AI: Hepsi"
         : filters.aiScope === "with"
-          ? "AI: kullanan"
-          : "AI: kullanmayan",
-      filters.sector === "all" ? "Sektor: tumu" : `Sektor: ${filters.sector}`,
-      `${filters.seniorities.length}/${SENIORITY_ORDER.length} seviye`,
-      `${filters.workModes.length}/${WORK_MODE_ORDER.length} calisma bicimi`,
-      `${filters.roleFamilies.length}/${roleFamilyOptions.length} rol ailesi`,
+          ? "AI: Kullananlar"
+          : "AI: Kullanmayanlar",
+      filters.sector === "all" ? "Sektör: Tümü" : `Sektör: ${filters.sector}`,
+      `Seviye: ${filters.seniorities.length}/${SENIORITY_ORDER.length}`,
+      `Çalışma biçimi: ${filters.workModes.length}/${WORK_MODE_ORDER.length}`,
+      `Rol ailesi: ${filters.roleFamilies.length}/${roleFamilyOptions.length}`,
     ],
     [filters, roleFamilyOptions.length],
   );
@@ -426,12 +458,14 @@ function App() {
         overallMedian={kpis.median}
         aiShare={kpis.aiAdoptionShare}
         foreignShare={kpis.foreignCurrencyShare}
-        foreignLabel="Doviz payi (aktif kesit)"
+        foreignLabel="Dövizli maaş payı"
+        salaryMode={filters.salaryMode}
+        sliceScopeLabel={getSliceScopeLabel(filters)}
         provinces={kpis.provinceCount}
       />
 
       <div className="sticky-frame">
-        <nav className="tab-bar" aria-label="Atlas tabs">
+        <nav className="tab-bar" aria-label="Uygulama sekmeleri">
           {TAB_ITEMS.map((tab) => (
             <button
               key={tab.id}
@@ -450,10 +484,11 @@ function App() {
         <section className={filtersExpanded ? "control-panel" : "control-panel is-collapsed"}>
           <div className="control-header">
             <div className="control-header-copy">
-              <span className="control-label">Odak</span>
-              <strong>Aktif kesit filtreleri</strong>
+              <span className="control-label">Geçerli görünüm</span>
+              <strong>Şu anda gösterilen kesit</strong>
             </div>
             <div className="control-summary">
+              <span className="summary-lead">Şu an:</span>
               {activeFilterSummary.map((item) => (
                 <span key={item} className="summary-pill">
                   {item}
@@ -466,7 +501,7 @@ function App() {
                 type="button"
                 onClick={() => setFiltersExpanded((current) => !current)}
               >
-                {filtersExpanded ? "Filtreleri gizle" : "Filtreleri goster"}
+                {filtersExpanded ? "Filtreleri gizle" : "Filtreleri göster"}
               </button>
               <button
                 className="ghost-button"
@@ -479,7 +514,7 @@ function App() {
                   });
                 }}
               >
-                Filtreleri sifirla
+                Filtreleri sıfırla
               </button>
             </div>
           </div>
@@ -491,8 +526,8 @@ function App() {
                   <span className="control-label">Odak</span>
                   <SegmentedToggle
                     items={[
-                      { id: "try", label: "TRY odağı" },
-                      { id: "fx", label: "FX model" },
+                      { id: "try", label: "Doğrudan TRY" },
+                      { id: "fx", label: "Referans TRY" },
                     ]}
                     activeId={filters.salaryMode}
                     onChange={(value) =>
@@ -504,8 +539,8 @@ function App() {
                   <span className="control-label">Coğrafya</span>
                   <SegmentedToggle
                     items={[
-                      { id: "domestic", label: "Turkiye" },
-                      { id: "abroad", label: "Yurtdışı" },
+                      { id: "domestic", label: "Türkiye" },
+                      { id: "abroad", label: "Yurt dışı" },
                       { id: "all", label: "Tümü" },
                     ]}
                     activeId={filters.geographyScope}
@@ -529,7 +564,7 @@ function App() {
                   />
                 </div>
                 <div className="control-group">
-                  <span className="control-label">Sektor odağı</span>
+                  <span className="control-label">Sektör odağı</span>
                   <select
                     className="surface-select"
                     value={filters.sector}
@@ -537,7 +572,7 @@ function App() {
                       setFilters((current) => ({ ...current, sector: event.target.value }))
                     }
                   >
-                    <option value="all">Tum sektorler</option>
+                    <option value="all">Tüm sektörler</option>
                     {sectorOptions.map((sector) => (
                       <option key={sector} value={sector}>
                         {sector}
@@ -551,6 +586,7 @@ function App() {
                   label="Seviye"
                   options={SENIORITY_ORDER}
                   selected={filters.seniorities}
+                  formatLabel={formatSeniorityLabel}
                   onToggle={(value) =>
                     setFilters((current) => ({
                       ...current,
@@ -562,6 +598,7 @@ function App() {
                   label="Çalışma biçimi"
                   options={WORK_MODE_ORDER}
                   selected={filters.workModes}
+                  formatLabel={formatWorkModeLabel}
                   onToggle={(value) =>
                     setFilters((current) => ({
                       ...current,
@@ -573,7 +610,7 @@ function App() {
                   label="Rol ailesi"
                   options={roleFamilyOptions}
                   selected={filters.roleFamilies}
-                  formatLabel={formatRoleFamily}
+                  formatLabel={formatRoleFamilyLabel}
                   onToggle={(value) =>
                     setFilters((current) => ({
                       ...current,
@@ -591,10 +628,26 @@ function App() {
         {activeTab === "overview" && (
           <section className="tab-layout">
             <div className="metric-grid">
-              <MetricCard label="Medyan gelir" value={formatMoney(kpis.median)} note="Filtrelenmiş kesit" />
-              <MetricCard label="Ust ceyrek" value={formatMoney(kpis.p75)} note="Yukarı bant" />
-              <MetricCard label="AI araç kullanımı" value={formatPercent(kpis.aiAdoptionShare)} note="Kesit içinde" />
-              <MetricCard label="Kapsanan il" value={formatInteger(kpis.provinceCount)} note="Haritada görünen" />
+              <MetricCard
+                label="Medyan ücret"
+                value={formatMoney(kpis.median)}
+                note={`${getSliceScopeLabel(filters)} • ${getSalaryModeTitle(filters.salaryMode)}`}
+              />
+              <MetricCard
+                label="Üst çeyrek"
+                value={formatMoney(kpis.p75)}
+                note={`Aktif filtre kesiti • ${getSalaryModeTitle(filters.salaryMode)}`}
+              />
+              <MetricCard
+                label="AI araç kullanımı"
+                value={formatPercent(kpis.aiAdoptionShare)}
+                note="Aktif filtre kesiti"
+              />
+              <MetricCard
+                label="Kapsanan il"
+                value={formatInteger(kpis.provinceCount)}
+                note="Aktif filtre kesitinde il bilgisi bulunan yanıtlar"
+              />
             </div>
 
             <div className="insight-grid">
@@ -615,7 +668,7 @@ function App() {
               >
                 <ReactECharts
                   {...chartRuntimeProps}
-                  option={buildHistogramOption(histogram)}
+                  option={buildHistogramOption(histogram, { salaryMode: filters.salaryMode })}
                   className="chart"
                 />
               </ChartCard>
@@ -626,7 +679,11 @@ function App() {
               >
                 <ReactECharts
                   {...chartRuntimeProps}
-                  option={buildLineOption(experienceCurve)}
+                  option={buildLineOption(experienceCurve, formatMoney, {
+                    salaryMode: filters.salaryMode,
+                    metricLabel: "Medyan ücret",
+                    metricHelp: getSalaryModeExplanation(filters.salaryMode),
+                  })}
                   className="chart"
                 />
               </ChartCard>
@@ -635,8 +692,8 @@ function App() {
             <div className="chart-grid chart-grid--two">
               <ChartCard
                 title="Rol ailesi x seviye"
-                kicker="En temiz premium haritası"
-                body="Küçük örnekleri eledikten sonra hangi rol ailesinin hangi seviyede öne çıktığını gösterir."
+                kicker="Yoğunluğu değil, medyanı okur"
+                body="Renk medyan ücreti gösterir. Hücre etiketleri yalnızca hover anında görünür; böylece yapı daha net okunur."
               >
                 <ReactECharts
                   {...chartRuntimeProps}
@@ -644,18 +701,30 @@ function App() {
                     roleFamilyHeatmap.entries,
                     roleFamilyHeatmap.axes.rows,
                     roleFamilyHeatmap.axes.columns,
+                    {
+                      salaryMode: filters.salaryMode,
+                      rowLabel: "Rol ailesi",
+                      columnLabel: "Seviye",
+                    },
                   )}
                   className="chart chart--tall"
                 />
               </ChartCard>
               <ChartCard
                 title="Çalışma düzeni"
-                kicker="Remote, hybrid, office"
-                body="Ofis yoğun düzenlerin ücret seviyesi belirgin biçimde aşağıda kalıyor."
+                kicker="Uzaktan, hibrit, ofis"
+                body="Aynı aktif kesitte çalışma biçimlerini yan yana karşılaştırır; her çubukta örneklem tooltip içinde görünür."
               >
                 <ReactECharts
                   {...chartRuntimeProps}
-                  option={buildBarOption(workModeBars, { color: "#0f766e", horizontal: false })}
+                  option={buildBarOption(workModeBars, {
+                    color: "#0f766e",
+                    horizontal: false,
+                    salaryMode: filters.salaryMode,
+                    metricLabel: "Medyan ücret",
+                    metricHelp: getSalaryModeExplanation(filters.salaryMode),
+                    categoryLabelFormatter: formatWorkModeLabel,
+                  })}
                   className="chart"
                 />
               </ChartCard>
@@ -671,7 +740,7 @@ function App() {
                 <SegmentedToggle
                   items={[
                     { id: "median", label: "Medyan" },
-                    { id: "p75", label: "Ust ceyrek" },
+                    { id: "p75", label: "Üst çeyrek" },
                     { id: "count", label: "Yanıt hacmi" },
                   ]}
                   activeId={mapMetric}
@@ -679,11 +748,11 @@ function App() {
                 />
               </div>
               <label className="range-control">
-                <span>Min örneklem</span>
+                <span>En düşük örneklem</span>
                 <input
                   type="range"
                   min={4}
-                  max={20}
+                  max={30}
                   value={mapMinCount}
                   onChange={(event) => setMapMinCount(Number.parseInt(event.target.value, 10))}
                 />
@@ -693,9 +762,9 @@ function App() {
 
             <div className="chart-grid chart-grid--atlas">
               <ChartCard
-                title="Turkiye maas atlasi"
-                kicker="Ile göre ücret ısısı"
-                body="Harita, filtrelenmiş kesitin yalnızca il bazında okunabilen yerli cevaplarını kullanır."
+                title="Türkiye maaş atlası"
+                kicker="İle göre ücret görünümü"
+                body="Harita yalnızca il bilgisi olan yurt içi yanıtları kullanır. Renk seçili metriği, tooltip ise hem metriği hem örneklemi açıklar."
               >
                 <ReactECharts
                   {...chartRuntimeProps}
@@ -715,7 +784,7 @@ function App() {
                       <span className="ranking-index">{index + 1}</span>
                       <div>
                         <strong>{entry.province}</strong>
-                        <small>{formatInteger(entry.count)} yanıt</small>
+                        <small>n={formatInteger(entry.count)}</small>
                       </div>
                       <span>
                         {mapMetric === "count"
@@ -734,22 +803,31 @@ function App() {
               <ChartCard
                 title="Şirket büyüklüğü merdiveni"
                 kicker="Takım ölçeği arttıkça maaş ne yapıyor?"
-                body="Mikro ekiplerden 250+ yapılara doğru belirgin bir basamak etkisi oluşuyor."
+                body="Aynı aktif kesitte şirket büyüklüğü arttıkça medyan ücretin nasıl değiştiğini gösterir."
               >
                 <ReactECharts
                   {...chartRuntimeProps}
-                  option={buildLineOption(companySizeCurve)}
+                  option={buildLineOption(companySizeCurve, formatMoney, {
+                    salaryMode: filters.salaryMode,
+                    metricLabel: "Medyan ücret",
+                    metricHelp: getSalaryModeExplanation(filters.salaryMode),
+                  })}
                   className="chart"
                 />
               </ChartCard>
               <ChartCard
-                title="Sektör premium tablosu"
+                title="Sektör karşılaştırması"
                 kicker="Filtre içindeki en güçlü alanlar"
-                body="Bu görünüm doğrudan hangi sektörlerin daha yüksek ücret tavanı ürettiğini öne çıkarır."
+                body="Sektörleri aynı aktif kesitte medyan ücrete göre sıralar; yorumlarken her satırın örneklemine bakın."
               >
                 <ReactECharts
                   {...chartRuntimeProps}
-                  option={buildBarOption(companyTypeBars, { color: "#c46e3d" })}
+                  option={buildBarOption(companyTypeBars, {
+                    color: "#c46e3d",
+                    salaryMode: filters.salaryMode,
+                    metricLabel: "Medyan ücret",
+                    metricHelp: getSalaryModeExplanation(filters.salaryMode),
+                  })}
                   className="chart"
                 />
               </ChartCard>
@@ -763,18 +841,23 @@ function App() {
               <ChartCard
                 title="Rol bazlı lider tablo"
                 kicker="En yüksek medyanlar"
-                body="Düşük örneklemleri filtreledikten sonra net şekilde yönetim ve mimari roller yukarı çıkıyor."
+                body="Düşük örneklemleri eledikten sonra rolleri aynı aktif kesitte medyan ücrete göre sıralar."
               >
                 <ReactECharts
                   {...chartRuntimeProps}
-                  option={buildBarOption(topRoleBars, { color: "#163245" })}
+                  option={buildBarOption(topRoleBars, {
+                    color: "#163245",
+                    salaryMode: filters.salaryMode,
+                    metricLabel: "Medyan ücret",
+                    metricHelp: getSalaryModeExplanation(filters.salaryMode),
+                  })}
                   className="chart chart--tall"
                 />
               </ChartCard>
               <ChartCard
                 title="Sektör x çalışma modu"
-                kicker="Premium hangi kombinasyonlarda yoğun?"
-                body="Hibrit bankacılık ve bazı fintech kümeleri üst bantta toplanıyor."
+                kicker="Hangi kombinasyonlar öne çıkıyor?"
+                body="Renk medyan ücreti gösterir. Tam değerler ve örneklem sadece hover anında açılır; bu yüzden desen daha temiz görünür."
               >
                 <ReactECharts
                   {...chartRuntimeProps}
@@ -782,6 +865,11 @@ function App() {
                     companyHeatmap.entries,
                     companyHeatmap.axes.rows,
                     companyHeatmap.axes.columns,
+                    {
+                      salaryMode: filters.salaryMode,
+                      rowLabel: "Sektör",
+                      columnLabel: "Çalışma biçimi",
+                    },
                   )}
                   className="chart chart--tall"
                 />
@@ -791,12 +879,14 @@ function App() {
             <div className="chart-grid chart-grid--two">
               <ChartCard
                 title="Teknoloji ve araç yayılımı"
-                kicker="Kullanim hacmi vs gelir"
-                body="AI araçları yüksek yayılım alanında bir küme oluşturuyor; ama kullanım tek başına gelir açıklamıyor."
+                kicker="Kullanım hacmi ve ücret"
+                body="Noktanın yeri medyan ücreti ve kullanım hacmini, tooltip ise örneklemi ve aktif kesit kapsamını açıklar."
               >
                 <ReactECharts
                   {...chartRuntimeProps}
-                  option={buildScatterOption(technologyScatter)}
+                  option={buildScatterOption(technologyScatter, {
+                    salaryMode: filters.salaryMode,
+                  })}
                   className="chart chart--tall"
                 />
               </ChartCard>
@@ -833,8 +923,8 @@ function App() {
             <div className="lab-grid">
               <ChartCard
                 title="Mini sorgu dili"
-                kicker="Filter -> group -> metric"
-                body="Örnek: filter currency=TRY & seniority=Senior | group roleFamily, workMode | metric median(salary), count() | sort -median_salary | min_count 15"
+                kicker="filter -> group -> metric"
+                body="Sorgular üstteki aktif filtrelerin içinde çalışır. Örnek: filter currency=TRY & seniority=Senior | group roleFamily, workMode | metric median(salary), count() | sort -median_salary | min_count 15"
               >
                 <div className="query-lab">
                   <textarea
@@ -863,7 +953,7 @@ function App() {
                         {formatInteger(queryExecution.result?.rows.length ?? 0)} satır üretildi
                       </span>
                       <small>
-                        Metric: {queryExecution.result?.metricFields.join(", ") ?? "count"}
+                        Metrikler: {queryExecution.result?.metricFields.map(formatQueryFieldLabel).join(", ") ?? "Örneklem"}
                       </small>
                     </div>
                   )}
@@ -873,7 +963,7 @@ function App() {
               <ChartCard
                 title="Sorgu çıktısı"
                 kicker="İlk metrik grafiğe dökülür"
-                body="Lab, üstteki global filtreleri de otomatik uygular; yani her sorgu o aktif kesit üzerinde çalışır."
+                body="Laboratuvar görünümü, üstteki filtreleri otomatik uygular; yani her sorgu o aktif kesit üzerinde çalışır."
               >
                 {queryExecution.result ? (
                   <>
@@ -883,6 +973,7 @@ function App() {
                         queryExecution.result.rows,
                         queryLabelField,
                         queryMetricField,
+                        { salaryMode: filters.salaryMode },
                       )}
                       className="chart"
                     />
@@ -912,8 +1003,8 @@ function App() {
             <div className="chart-grid chart-grid--two">
               <ChartCard
                 title="Ham veri kapsamı"
-                kicker="Bu app hangi zeminde duruyor?"
-                body="Ana hikaye 5.002 yanıtın temizlenmiş sürümü üzerine kuruludur."
+                kicker="Bu uygulama hangi zeminde duruyor?"
+                body="Bu kart yalnızca genel veri setinin kapsamını anlatır; aktif filtrelerden etkilenmez."
               >
                 <ul className="fact-list">
                   <li>
@@ -939,9 +1030,9 @@ function App() {
                 </ul>
               </ChartCard>
               <ChartCard
-                title="Varsayılan headline’lar"
+                title="Genel veri seti sinyalleri"
                 kicker="Temel veri sinyalleri"
-                body="Bunlar genel veri setinin ilk seviyedeki okunabilir işaretleridir."
+                body="Buradaki tüm değerler global veri setine aittir; aktif filtre kesitini değil, bütün anketi özetler."
               >
                 <ul className="fact-list">
                   <li>
@@ -953,7 +1044,7 @@ function App() {
                     <strong>{formatMoney(data.summary.keyNumbers.istanbulMedian)}</strong>
                   </li>
                   <li>
-                    <span>İstanbul premiumu</span>
+                    <span>İstanbul farkı</span>
                     <strong>{formatMoney(data.summary.keyNumbers.istanbulPremiumVsOverall)}</strong>
                   </li>
                   <li>
@@ -981,42 +1072,51 @@ function Hero(props: {
   aiShare: number;
   foreignShare: number;
   foreignLabel: string;
+  salaryMode: FilterState["salaryMode"];
+  sliceScopeLabel: string;
   provinces: number;
 }) {
   return (
     <header className="hero">
       <div className="hero-copy">
-        <span className="hero-kicker">2026 yazilim sektoru maas atlasi</span>
-        <h1>Ham veri yığınını okunabilir bir maaş haritasına dönüştüren interaktif çalışma yüzeyi.</h1>
-        <p>
-          Bu artefakt; veri temizleme, fiyat merdiveni, il bazlı atlas, sektör ve rol premiumları,
-          ayrıca sorgu laboratuvarını tek bir sekmede toplar.
+        <span className="hero-kicker">2026 yazılım sektörü maaş atlası</span>
+        <h1>2026 Yazılımcı Maaş Atlası</h1>
+        <p className="hero-context">
+          Şu an görülen kartlar {props.sliceScopeLabel.toLowerCase()} için hesaplanır. Ücret modu:
+          {" "}
+          <strong>{getSalaryModeTitle(props.salaryMode)}</strong>.
         </p>
       </div>
       <div className="hero-metrics">
         <div>
           <span>Toplam yanıt</span>
           <strong>{formatCompact(props.totalResponses)}</strong>
+          <small>Global veri seti</small>
         </div>
         <div>
           <span>Aktif kesit</span>
           <strong>{formatCompact(props.filteredResponses)}</strong>
+          <small>Şu anki filtreler</small>
         </div>
         <div>
-          <span>Medyan gelir</span>
+          <span>Medyan ücret</span>
           <strong>{formatMoney(props.overallMedian)}</strong>
+          <small>{getSalaryModeTitle(props.salaryMode)}</small>
         </div>
         <div>
           <span>AI kullanımı</span>
           <strong>{formatPercent(props.aiShare)}</strong>
+          <small>Aktif filtre kesiti</small>
         </div>
         <div>
           <span>{props.foreignLabel}</span>
           <strong>{formatPercent(props.foreignShare)}</strong>
+          <small>Aktif filtre kesiti</small>
         </div>
         <div>
           <span>Kapsanan il</span>
           <strong>{formatInteger(props.provinces)}</strong>
+          <small>Aktif filtre kesiti</small>
         </div>
       </div>
     </header>
@@ -1113,7 +1213,7 @@ function QueryTable(props: {
         <thead>
           <tr>
             {fields.map((field) => (
-              <th key={field}>{field}</th>
+              <th key={field}>{formatQueryFieldLabel(field)}</th>
             ))}
           </tr>
         </thead>
@@ -1144,7 +1244,7 @@ function LoadingState() {
   return (
     <div className="status-shell">
       <div className="status-card">
-        <span>Yukleniyor</span>
+        <span>Yükleniyor</span>
         <h1>Veri atlası hazırlanıyor.</h1>
         <p>İşlenmiş anket dosyaları ve harita katmanı belleğe alınıyor.</p>
       </div>

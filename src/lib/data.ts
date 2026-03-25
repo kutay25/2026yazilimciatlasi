@@ -158,15 +158,25 @@ export interface AppData {
 
 export const TAB_ITEMS = [
   { id: "overview", label: "Panorama", eyebrow: "Genel resim" },
-  { id: "atlas", label: "Atlas", eyebrow: "Turkiye haritasi" },
-  { id: "patterns", label: "Desenler", eyebrow: "Kesitler ve premiumlar" },
-  { id: "lab", label: "Sorgu Lab", eyebrow: "Canli kesitler" },
+  { id: "atlas", label: "Atlas", eyebrow: "Türkiye haritası" },
+  { id: "patterns", label: "Desenler", eyebrow: "Kesitler ve farklar" },
+  { id: "lab", label: "Sorgu Laboratuvarı", eyebrow: "Canlı kesitler" },
   { id: "method", label: "Metod", eyebrow: "Temizleme ve notlar" },
 ] as const;
 
 export type TabId = (typeof TAB_ITEMS)[number]["id"];
 
 export const SENIORITY_ORDER = ["Junior", "Middle", "Senior"];
+export const SENIORITY_LABELS: Record<string, string> = {
+  Junior: "Başlangıç",
+  Middle: "Orta seviye",
+  Senior: "Kıdemli",
+};
+export const SENIORITY_SHORT_LABELS: Record<string, string> = {
+  Junior: "Başl.",
+  Middle: "Orta",
+  Senior: "Kıd.",
+};
 export const EXPERIENCE_ORDER = [
   "0 - 1 Yıl",
   "1 - 3 Yıl",
@@ -184,6 +194,20 @@ export const WORK_MODE_ORDER = [
   "Remote -> Hybrid",
   "Hybrid -> Office",
 ];
+export const WORK_MODE_LABELS: Record<string, string> = {
+  Hybrid: "Hibrit",
+  Remote: "Uzaktan",
+  Office: "Ofis",
+  "Remote -> Hybrid": "Uzaktan -> Hibrit",
+  "Hybrid -> Office": "Hibrit -> Ofis",
+};
+export const WORK_MODE_SHORT_LABELS: Record<string, string> = {
+  Hybrid: "Hibrit",
+  Remote: "Uzaktan",
+  Office: "Ofis",
+  "Remote -> Hybrid": "Uzak. -> Hibrit",
+  "Hybrid -> Office": "Hibrit -> Ofis",
+};
 export const ROLE_FAMILY_ORDER = [
   "Leadership",
   "Web Engineering",
@@ -200,16 +224,54 @@ export const ROLE_FAMILY_ORDER = [
 
 export const ROLE_FAMILY_LABELS: Record<string, string> = {
   Leadership: "Liderlik",
-  "Web Engineering": "Web Muhendisligi",
+  "Web Engineering": "Web Mühendisliği",
   Mobile: "Mobil",
   "Data & AI": "Veri ve AI",
-  Infra: "Altyapi",
-  "Product & Delivery": "Urun ve teslimat",
+  Infra: "Altyapı",
+  "Product & Delivery": "Ürün ve teslimat",
   Quality: "Kalite",
-  Security: "Guvenlik",
-  Embedded: "Gomulu",
+  Security: "Güvenlik",
+  Embedded: "Gömülü",
   "Enterprise Systems": "Kurumsal Sistemler",
   Specialist: "Uzman Roller",
+};
+export const ROLE_FAMILY_SHORT_LABELS: Record<string, string> = {
+  Leadership: "Liderlik",
+  "Web Engineering": "Web Müh.",
+  Mobile: "Mobil",
+  "Data & AI": "Veri & AI",
+  Infra: "Altyapı",
+  "Product & Delivery": "Ürün",
+  Quality: "Kalite",
+  Security: "Güvenlik",
+  Embedded: "Gömülü",
+  "Enterprise Systems": "Kurumsal",
+  Specialist: "Uzman",
+};
+
+export const QUERY_FIELD_LABELS: Record<string, string> = {
+  label: "Grup",
+  province: "İl",
+  country: "Ülke",
+  seniority: "Seviye",
+  role: "Rol",
+  roleFamily: "Rol ailesi",
+  experience: "Deneyim",
+  workMode: "Çalışma biçimi",
+  companyType: "Sektör",
+  companySize: "Şirket büyüklüğü",
+  gender: "Cinsiyet",
+  currency: "Para birimi",
+  raises: "Yıllık zam sayısı",
+  count: "Örneklem",
+  median_salary: "Medyan ücret",
+  mean_salary: "Ortalama ücret",
+  p25_salary: "Alt çeyrek",
+  p75_salary: "Üst çeyrek",
+  max_salary: "Maksimum",
+  min_salary: "Minimum",
+  share_hasAiTools: "AI kullanım payı",
+  share_foreignCurrency: "Dövizli maaş payı",
 };
 
 export const assetPath = (fileName: string) => `${import.meta.env.BASE_URL}data/${fileName}`;
@@ -265,4 +327,32 @@ export function formatPercent(value: number | null | undefined) {
     return "—";
   }
   return percentFormatter.format(value);
+}
+
+export function formatSeniorityLabel(value: string) {
+  return SENIORITY_LABELS[value] ?? value;
+}
+
+export function formatSeniorityShortLabel(value: string) {
+  return SENIORITY_SHORT_LABELS[value] ?? formatSeniorityLabel(value);
+}
+
+export function formatWorkModeLabel(value: string) {
+  return WORK_MODE_LABELS[value] ?? value;
+}
+
+export function formatWorkModeShortLabel(value: string) {
+  return WORK_MODE_SHORT_LABELS[value] ?? formatWorkModeLabel(value);
+}
+
+export function formatRoleFamilyLabel(value: string) {
+  return ROLE_FAMILY_LABELS[value] ?? value;
+}
+
+export function formatRoleFamilyShortLabel(value: string) {
+  return ROLE_FAMILY_SHORT_LABELS[value] ?? formatRoleFamilyLabel(value);
+}
+
+export function formatQueryFieldLabel(value: string) {
+  return QUERY_FIELD_LABELS[value] ?? value;
 }

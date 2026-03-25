@@ -1,5 +1,15 @@
 import type { EChartsOption } from "echarts";
-import { formatInteger, formatMoney, formatPercent } from "./data";
+import {
+  formatInteger,
+  formatMoney,
+  formatPercent,
+  formatRoleFamilyLabel,
+  formatRoleFamilyShortLabel,
+  formatSeniorityLabel,
+  formatSeniorityShortLabel,
+  formatWorkModeLabel,
+  formatWorkModeShortLabel,
+} from "./data";
 
 const CHART_COLORS = {
   ink: "#163245",
@@ -28,6 +38,35 @@ function buildEmptyOption(message: string): EChartsOption {
         font: '500 14px "IBM Plex Sans", sans-serif',
       },
     },
+  };
+}
+
+function buildSparseOption(title: string, message: string): EChartsOption {
+  return {
+    ...buildEmptyOption(message),
+    graphic: [
+      {
+        type: "text",
+        left: "center",
+        top: "42%",
+        style: {
+          text: title,
+          fill: "#163245",
+          font: '700 18px "Space Grotesk", sans-serif',
+        },
+      },
+      {
+        type: "text",
+        left: "center",
+        top: "54%",
+        style: {
+          text: message,
+          fill: "#5a7384",
+          font: '500 14px "IBM Plex Sans", sans-serif',
+          width: 280,
+        },
+      },
+    ],
   };
 }
 
@@ -63,9 +102,44 @@ function tooltipBase() {
   };
 }
 
-export function buildHistogramOption(histogram: Array<{ label: string; count: number }>): EChartsOption {
+function formatScopeLabel(salaryMode: "try" | "fx") {
+  return salaryMode === "fx" ? "referans TRY karşılığı" : "doğrudan TRY yanıtları";
+}
+
+function tooltipRows(title: string, rows: string[]) {
+  return [title, ...rows].join("<br/>");
+}
+
+function formatAxisCategory(value: string, short = false) {
+  const roleLabel = short ? formatRoleFamilyShortLabel(value) : formatRoleFamilyLabel(value);
+  if (roleLabel !== value) {
+    return roleLabel;
+  }
+  const workModeLabel = short ? formatWorkModeShortLabel(value) : formatWorkModeLabel(value);
+  if (workModeLabel !== value) {
+    return workModeLabel;
+  }
+  const seniorityLabel = short ? formatSeniorityShortLabel(value) : formatSeniorityLabel(value);
+  if (seniorityLabel !== value) {
+    return seniorityLabel;
+  }
+  return value;
+}
+
+function formatHeatmapLabel(params: any) {
+  const value = params.data?.[2];
+  return typeof value === "number" ? `${Math.round(value / 1000)}k` : "—";
+}
+
+export function buildHistogramOption(
+  histogram: Array<{ label: string; count: number }>,
+  context: { salaryMode: "try" | "fx" },
+): EChartsOption {
   if (!histogram.length) {
-    return buildEmptyOption("Bu filtre için histogram verisi yok.");
+    return buildSparseOption(
+      "Dağılım gösterilemiyor",
+      "Bu filtrelerde ücret dağılımı çıkaracak yeterli gözlem bulunamadı.",
+    );
   }
   return {
     color: [CHART_COLORS.teal],
@@ -73,6 +147,14 @@ export function buildHistogramOption(histogram: Array<{ label: string; count: nu
       ...tooltipBase(),
       trigger: "axis",
       axisPointer: { type: "shadow" },
+      formatter: (params: any) => {
+        const item = histogram[params[0].dataIndex];
+        return tooltipRows(item.label, [
+          `Örneklem: ${formatInteger(item.count)}`,
+          `Kapsam: Aktif filtre kesiti`,
+          `Ücret türü: ${formatScopeLabel(context.salaryMode)}`,
+        ]);
+      },
     },
     grid: { left: 16, right: 12, bottom: 48, top: 20, containLabel: true },
     xAxis: {
@@ -104,15 +186,28 @@ export function buildHistogramOption(histogram: Array<{ label: string; count: nu
 
 export function buildBarOption(
   items: Array<{ label: string; value: number | null; count?: number }>,
-  config: { color?: string; horizontal?: boolean; valueFormatter?: (value: number | null) => string },
+  config: {
+    color?: string;
+    horizontal?: boolean;
+    valueFormatter?: (value: number | null) => string;
+    salaryMode?: "try" | "fx";
+    metricLabel?: string;
+    metricHelp?: string;
+    categoryLabelFormatter?: (value: string) => string;
+  },
 ): EChartsOption {
   if (!items.length) {
-    return buildEmptyOption("Bu filtre için karsilastirma verisi yok.");
+    return buildSparseOption(
+      "Karşılaştırma gösterilemiyor",
+      "Bu filtrelerde güvenilir bir karşılaştırma üretmek için yeterli örneklem yok.",
+    );
   }
   const horizontal = config.horizontal ?? true;
   const formatter = config.valueFormatter ?? formatMoney;
   const values = items.map((item) => item.value ?? 0);
-  const categories = items.map((item) => item.label);
+  const categories = items.map((item) =>
+    config.categoryLabelFormatter ? config.categoryLabelFormatter(item.label) : item.label,
+  );
   return {
     color: [config.color ?? CHART_COLORS.copper],
     tooltip: {
@@ -121,7 +216,18 @@ export function buildBarOption(
       axisPointer: { type: "shadow" },
       formatter: (params: any) => {
         const item = items[params[0].dataIndex];
-        return `${item.label}<br/>${formatter(item.value)}<br/>Orneklem: ${formatInteger(item.count ?? 0)}`;
+        const rows = [
+          `${config.metricLabel ?? "Değer"}: ${formatter(item.value)}`,
+          `Örneklem: ${formatInteger(item.count ?? 0)}`,
+          `Kapsam: Aktif filtre kesiti`,
+        ];
+        if (config.salaryMode) {
+          rows.push(`Ücret türü: ${formatScopeLabel(config.salaryMode)}`);
+        }
+        if (config.metricHelp) {
+          rows.push(`Not: ${config.metricHelp}`);
+        }
+        return tooltipRows(item.label, rows);
       },
     },
     grid: { left: 16, right: 16, top: 20, bottom: 16, containLabel: true },
@@ -170,9 +276,18 @@ export function buildBarOption(
 export function buildLineOption(
   items: Array<{ label: string; value: number | null; count?: number }>,
   formatter: (value: number | null) => string = formatMoney,
+  context?: {
+    salaryMode?: "try" | "fx";
+    metricLabel?: string;
+    metricHelp?: string;
+    labelFormatter?: (value: string) => string;
+  },
 ): EChartsOption {
   if (!items.length) {
-    return buildEmptyOption("Bu filtre için egri verisi yok.");
+    return buildSparseOption(
+      "Eğri gösterilemiyor",
+      "Bu filtrelerde düzenli bir eğri çıkaracak kadar veri bulunamadı.",
+    );
   }
   return {
     color: [CHART_COLORS.ink],
@@ -181,13 +296,26 @@ export function buildLineOption(
       trigger: "axis",
       formatter: (params: any) => {
         const item = items[params[0].dataIndex];
-        return `${item.label}<br/>${formatter(item.value)}<br/>Orneklem: ${formatInteger(item.count ?? 0)}`;
+        const rows = [
+          `${context?.metricLabel ?? "Değer"}: ${formatter(item.value)}`,
+          `Örneklem: ${formatInteger(item.count ?? 0)}`,
+          `Kapsam: Aktif filtre kesiti`,
+        ];
+        if (context?.salaryMode) {
+          rows.push(`Ücret türü: ${formatScopeLabel(context.salaryMode)}`);
+        }
+        if (context?.metricHelp) {
+          rows.push(`Not: ${context.metricHelp}`);
+        }
+        return tooltipRows(item.label, rows);
       },
     },
     grid: { left: 16, right: 12, top: 20, bottom: 24, containLabel: true },
     xAxis: {
       type: "category",
-      data: items.map((item) => item.label),
+      data: items.map((item) =>
+        context?.labelFormatter ? context.labelFormatter(item.label) : item.label,
+      ),
       axisLine: { lineStyle: { color: "#cbbda8" } },
       axisLabel: axisLabelStyle(),
     },
@@ -216,9 +344,18 @@ export function buildHeatmapOption(
   entries: Array<{ rowKey: string; columnKey: string; median: number | null; count: number }>,
   rows: string[],
   columns: string[],
+  context: {
+    salaryMode: "try" | "fx";
+    rowLabel?: string;
+    columnLabel?: string;
+    minCount?: number;
+  },
 ): EChartsOption {
   if (!entries.length || !rows.length || !columns.length) {
-    return buildEmptyOption("Bu filtre için isi haritasi verisi yok.");
+    return buildSparseOption(
+      "Isı haritası gösterilemiyor",
+      "Bu kombinasyonda hücreleri karşılaştırmak için yeterli örneklem yok. Daha geniş filtrelerle tekrar deneyin.",
+    );
   }
   const medians = entries.map((entry) => entry.median ?? 0);
   const visualRange = normalizeVisualRange(medians);
@@ -227,28 +364,48 @@ export function buildHeatmapOption(
       ...tooltipBase(),
       formatter: (params: any) => {
         const [columnIndex, rowIndex, value, count] = params.data ?? [];
-        return `${rows[rowIndex]} / ${columns[columnIndex]}<br/>Medyan: ${formatMoney(typeof value === "number" ? value : null)}<br/>Orneklem: ${formatInteger(typeof count === "number" ? count : null)}`;
+        return tooltipRows(
+          `${formatAxisCategory(rows[rowIndex])} / ${formatAxisCategory(columns[columnIndex])}`,
+          [
+            `Medyan ücret: ${formatMoney(typeof value === "number" ? value : null)}`,
+            `Örneklem: ${formatInteger(typeof count === "number" ? count : null)}`,
+            `Renk: Daha koyu ton daha yüksek medyan ücreti gösterir`,
+            `Kapsam: Aktif filtre kesiti`,
+            `Ücret türü: ${formatScopeLabel(context.salaryMode)}`,
+          ],
+        );
       },
     },
     grid: { left: 90, right: 16, top: 20, bottom: 24 },
     xAxis: {
       type: "category",
-      data: columns,
+      data: columns.map((value) => formatAxisCategory(value, true)),
       splitArea: { show: true },
       axisLabel: axisLabelStyle(),
       axisLine: { lineStyle: { color: "#cbbda8" } },
+      name: context.columnLabel,
+      nameLocation: "middle",
+      nameGap: 34,
     },
     yAxis: {
       type: "category",
-      data: rows,
+      data: rows.map((value) => formatAxisCategory(value, true)),
       splitArea: { show: true },
       axisLabel: axisLabelStyle(),
       axisLine: { lineStyle: { color: "#cbbda8" } },
+      name: context.rowLabel,
+      nameLocation: "middle",
+      nameGap: 70,
     },
     visualMap: {
       min: visualRange.min,
       max: visualRange.max,
-      show: false,
+      show: true,
+      orient: "horizontal",
+      left: "center",
+      bottom: -4,
+      text: ["Yüksek medyan", "Düşük medyan"],
+      textStyle: { color: "#355468", fontSize: 11 },
       inRange: {
         color: ["#f4efe5", "#ead3a1", "#d79246", "#8a4d2c", "#163245"],
       },
@@ -263,11 +420,8 @@ export function buildHeatmapOption(
           entry.count,
         ]),
         label: {
-          show: true,
-          formatter: (params: any) => {
-            const value = params.data?.[2];
-            return typeof value === "number" ? `${Math.round(value / 1000)}k` : "—";
-          },
+          show: false,
+          formatter: formatHeatmapLabel,
           color: "#173246",
           fontSize: 12,
           fontWeight: 700,
@@ -279,6 +433,10 @@ export function buildHeatmapOption(
           borderWidth: 1,
         },
         emphasis: {
+          label: {
+            show: true,
+            formatter: formatHeatmapLabel,
+          },
           itemStyle: {
             shadowBlur: 10,
             shadowColor: "rgba(0, 0, 0, 0.35)",
@@ -300,9 +458,13 @@ export function buildProvinceMapOption(
   }>,
   metricLabel: string,
   metricFormatter: (value: number | null) => string,
+  context: { salaryMode: "try" | "fx"; mapScopeLabel: string },
 ): EChartsOption {
   if (!provinceStats.length) {
-    return buildEmptyOption("Bu filtreyle eslesen il verisi yok.");
+    return buildSparseOption(
+      "Harita gösterilemiyor",
+      "Bu filtrelerde il düzeyinde okunabilir yeterli yerel yanıt kalmadı.",
+    );
   }
   const values = provinceStats.map((entry) => entry.value ?? 0);
   const visualRange = normalizeVisualRange(values);
@@ -314,7 +476,13 @@ export function buildProvinceMapOption(
         if (!entry) {
           return params.name;
         }
-        return `${entry.province}<br/>${metricLabel}: ${metricFormatter(entry.value)}<br/>P75: ${formatMoney(entry.p75)}<br/>Orneklem: ${formatInteger(entry.count)}`;
+        return tooltipRows(entry.province, [
+          `${metricLabel}: ${metricFormatter(entry.value)}`,
+          `Üst çeyrek: ${formatMoney(entry.p75)}`,
+          `Örneklem: ${formatInteger(entry.count)}`,
+          `Kapsam: ${context.mapScopeLabel}`,
+          `Ücret türü: ${formatScopeLabel(context.salaryMode)}`,
+        ]);
       },
     },
     visualMap: {
@@ -358,21 +526,30 @@ export function buildProvinceMapOption(
 
 export function buildScatterOption(
   items: Array<{ label: string; count: number; median: number | null; isAiTool: boolean }>,
+  context: { salaryMode: "try" | "fx" },
 ): EChartsOption {
   if (!items.length) {
-    return buildEmptyOption("Bu filtre için teknoloji dagilimi yok.");
+    return buildSparseOption(
+      "Yayılım gösterilemiyor",
+      "Bu filtrelerde karşılaştırılabilir teknoloji kullanım kümeleri oluşmadı.",
+    );
   }
   return {
     tooltip: {
       ...tooltipBase(),
       formatter: (params: any) => {
         const item = items[params.dataIndex];
-        return `${item.label}<br/>Kullanim: ${formatInteger(item.count)}<br/>Medyan: ${formatMoney(item.median)}`;
+        return tooltipRows(item.label, [
+          `Kullanım: ${formatInteger(item.count)}`,
+          `Medyan ücret: ${formatMoney(item.median)}`,
+          `Kapsam: Aktif filtre kesiti`,
+          `Ücret türü: ${formatScopeLabel(context.salaryMode)}`,
+        ]);
       },
     },
     xAxis: {
       type: "value",
-      name: "Kullanim",
+      name: "Kullanım",
       nameLocation: "middle",
       nameGap: 32,
       axisLabel: axisLabelStyle(),
@@ -380,7 +557,7 @@ export function buildScatterOption(
     },
     yAxis: {
       type: "value",
-      name: "Medyan gelir",
+      name: "Medyan ücret",
       nameLocation: "middle",
       nameGap: 48,
       axisLabel: axisLabelStyle(),
@@ -406,9 +583,13 @@ export function buildQueryChartOption(
   rows: Array<Record<string, string | number | null>>,
   labelField: string,
   metricField: string,
+  context: { salaryMode: "try" | "fx" },
 ): EChartsOption {
   if (!rows.length) {
-    return buildEmptyOption("Sorgu sonucunda gosterilecek satir yok.");
+    return buildSparseOption(
+      "Sorgu sonucu boş",
+      "Bu sorgu ve aktif filtreler birlikte gösterilecek yeterli satır üretmedi.",
+    );
   }
   const labels = rows.map((row) => String(row[labelField] ?? "—"));
   const values = rows.map((row) => (typeof row[metricField] === "number" ? (row[metricField] as number) : 0));
@@ -423,6 +604,9 @@ export function buildQueryChartOption(
       color: CHART_COLORS.ink,
       horizontal: true,
       valueFormatter: isShare ? formatPercent : formatMoney,
+      salaryMode: isShare ? undefined : context.salaryMode,
+      metricLabel: isShare ? "Pay" : "Metrik",
+      metricHelp: "Sorgu sonucu, üstteki aktif filtrelere göre hesaplanır.",
     },
   );
 }

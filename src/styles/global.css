@@ -125,6 +125,14 @@ button {
   color: var(--ink-soft);
 }
 
+.hero-context {
+  max-width: 58ch;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
 .hero-metrics {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -163,6 +171,11 @@ button {
 .hero-metrics strong {
   font-size: 1.4rem;
   line-height: 1;
+}
+
+.hero-metrics small {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
 }
 
 .sticky-frame {
@@ -237,9 +250,9 @@ button {
 
 .control-panel {
   display: grid;
-  gap: 18px;
+  gap: 14px;
   margin-top: 14px;
-  padding: 20px;
+  padding: 16px 18px;
   border: 1px solid rgba(255, 255, 255, 0.84);
   border-radius: 28px;
   background: rgba(255, 251, 245, 0.82);
@@ -280,17 +293,27 @@ button {
 
 .control-summary {
   flex: 1;
+  align-items: center;
   flex-wrap: wrap;
   gap: 8px;
 }
 
+.summary-lead {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(22, 50, 69, 0.72);
+}
+
 .summary-pill {
   padding: 8px 12px;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(15, 118, 110, 0.16);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.52);
-  color: var(--ink-soft);
-  font-size: 0.9rem;
+  background: rgba(15, 118, 110, 0.08);
+  color: var(--ink);
+  font-size: 0.86rem;
+  font-weight: 500;
 }
 
 .control-actions {
@@ -300,8 +323,8 @@ button {
 
 .control-body {
   flex-direction: column;
-  gap: 16px;
-  padding-top: 6px;
+  gap: 14px;
+  padding-top: 4px;
   border-top: 1px solid var(--line);
 }
 
@@ -327,7 +350,7 @@ button {
 .filter-chip,
 .ghost-button,
 .surface-select {
-  padding: 10px 14px;
+  padding: 9px 13px;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.68);
@@ -462,6 +485,11 @@ button {
   font-family: "Space Grotesk", sans-serif;
   font-size: clamp(1.25rem, 2vw, 1.9rem);
   letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+.chart-card-header p {
+  max-width: 64ch;
 }
 
 .chart {
@@ -602,6 +630,7 @@ button {
   justify-content: space-between;
   gap: 16px;
   color: var(--ink-soft);
+  align-items: center;
 }
 
 .query-error {
@@ -728,6 +757,10 @@ button {
   .control-header {
     align-items: flex-start;
   }
+
+  .control-summary {
+    width: 100%;
+  }
 }
 
 @media (max-width: 720px) {
@@ -740,7 +773,7 @@ button {
   .chart-card,
   .control-panel,
   .section-toolbar {
-    padding: 20px;
+    padding: 18px;
   }
 
   .tab-button {
@@ -756,12 +789,34 @@ button {
     width: 100%;
   }
 
+  .sticky-frame {
+    position: static;
+  }
+
+  .control-summary {
+    gap: 6px;
+  }
+
+  .summary-pill {
+    font-size: 0.8rem;
+    padding: 7px 10px;
+  }
+
   .chart,
   .chart--tall {
-    height: 320px;
+    height: 300px;
   }
 
   .chart--map {
-    height: 440px;
+    height: 400px;
+  }
+
+  .query-meta {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .query-table {
+    min-width: 460px;
   }
 }

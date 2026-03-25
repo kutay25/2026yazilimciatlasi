@@ -83,7 +83,7 @@ function parseFilter(term: string): QueryFilter {
     };
   }
 
-  throw new Error(`Filtre anlasilmadi: "${term}"`);
+  throw new Error(`Filtre anlaşılamadı: "${term}"`);
 }
 
 function parseMetric(token: string): QueryMetric {
@@ -119,7 +119,7 @@ function parseMetric(token: string): QueryMetric {
     };
   }
 
-  throw new Error(`Metrik anlasilmadi: "${token}"`);
+  throw new Error(`Metrik anlaşılamadı: "${token}"`);
 }
 
 export function parseQuery(query: string): ParsedQuery {
@@ -185,7 +185,7 @@ export function parseQuery(query: string): ParsedQuery {
       continue;
     }
 
-    throw new Error(`Bolum anlasilmadi: "${part}"`);
+    throw new Error(`Bölüm anlaşılamadı: "${part}"`);
   }
 
   return parsed;
