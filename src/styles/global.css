@@ -692,6 +692,52 @@ button {
   gap: 14px;
 }
 
+.query-help-trigger {
+  justify-self: start;
+}
+
+.query-help-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(10, 28, 40, 0.5);
+}
+
+.query-help-modal {
+  width: min(760px, calc(100vw - 32px));
+  max-height: min(82vh, 760px);
+  overflow: auto;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 24px 54px rgba(10, 28, 40, 0.24);
+}
+
+.query-help-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.query-help-list {
+  margin: 0;
+  padding-left: 16px;
+  display: grid;
+  gap: 6px;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.query-help-list li code {
+  font-size: 12px;
+}
+
 .query-metric-tabs {
   margin-bottom: 12px;
 }

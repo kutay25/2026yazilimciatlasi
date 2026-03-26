@@ -90,11 +90,56 @@ function axisLabelStyle() {
   };
 }
 
+function formatNumericAxisTick(value: number) {
+  if (!Number.isFinite(value)) {
+    return "—";
+  }
+  const absolute = Math.abs(value);
+  if (absolute >= 1000) {
+    return `${Math.round(value / 1000)}k`;
+  }
+  if (Number.isInteger(value)) {
+    return formatInteger(value);
+  }
+  return value.toFixed(1).replace(".", ",");
+}
+
+function tooltipPosition(
+  point: number[],
+  _params: any,
+  _dom: HTMLElement,
+  _rect: any,
+  size: { contentSize: number[]; viewSize: number[] },
+) {
+  const [contentWidth = 0, contentHeight = 0] = size?.contentSize ?? [];
+  const [viewWidth = 0, viewHeight = 0] = size?.viewSize ?? [];
+  const [pointX = 0, pointY = 0] = point ?? [];
+
+  if (viewWidth <= 560) {
+    const left = Math.max(8, Math.round((viewWidth - contentWidth) / 2));
+    const top = Math.max(8, viewHeight - contentHeight - 12);
+    return [left, top];
+  }
+
+  const left = Math.min(
+    Math.max(8, pointX + 12),
+    Math.max(8, viewWidth - contentWidth - 8),
+  );
+  const top = Math.min(
+    Math.max(8, pointY - contentHeight / 2),
+    Math.max(8, viewHeight - contentHeight - 8),
+  );
+  return [left, top];
+}
+
 function tooltipBase() {
   return {
     backgroundColor: "rgba(10, 28, 40, 0.92)",
     borderColor: "rgba(255,255,255,0.08)",
     borderWidth: 1,
+    confine: true,
+    position: tooltipPosition,
+    extraCssText: "max-width:min(92vw, 360px); white-space:normal; overflow-wrap:anywhere;",
     textStyle: {
       color: "#f5ede2",
       fontSize: 12,
@@ -252,7 +297,12 @@ export function buildBarOption(
       ? {
           type: "value",
           splitLine: { lineStyle: { color: "rgba(22, 50, 69, 0.1)" } },
-          axisLabel: axisLabelStyle(),
+          splitNumber: 4,
+          axisLabel: {
+            ...axisLabelStyle(),
+            hideOverlap: true,
+            formatter: (value: number) => formatNumericAxisTick(value),
+          },
         }
       : {
           type: "category",
@@ -374,7 +424,9 @@ export function buildHeatmapOption(
       "Bu kombinasyonda hücreleri karşılaştırmak için yeterli örneklem yok. Daha geniş filtrelerle tekrar deneyin.",
     );
   }
-  const medians = entries.map((entry) => entry.median ?? 0);
+  const medians = entries
+    .map((entry) => entry.median)
+    .filter((value): value is number => typeof value === "number");
   const visualRange = normalizeVisualRange(medians);
   return {
     tooltip: {
@@ -415,6 +467,7 @@ export function buildHeatmapOption(
       nameGap: 70,
     },
     visualMap: {
+      dimension: 2,
       min: visualRange.min,
       max: visualRange.max,
       show: true,
@@ -433,9 +486,15 @@ export function buildHeatmapOption(
         data: entries.map((entry) => [
           columns.indexOf(entry.columnKey),
           rows.indexOf(entry.rowKey),
-          entry.median ?? 0,
+          entry.median,
           entry.count,
         ]),
+        encode: {
+          x: 0,
+          y: 1,
+          value: 2,
+          tooltip: [2, 3],
+        },
         label: {
           show: true,
           formatter: (params: any) => formatHeatmapLabelRich(params, visualRange),
@@ -444,22 +503,22 @@ export function buildHeatmapOption(
           rich: {
             dark: {
               color: "#173246",
-              textBorderColor: "rgba(255, 250, 242, 0.98)",
-              textBorderWidth: 3.5,
-              textShadowColor: "rgba(255, 250, 242, 0.92)",
-              textShadowBlur: 8,
+              textBorderColor: "rgba(255, 250, 242, 0.64)",
+              textBorderWidth: 1.4,
+              textShadowColor: "rgba(255, 250, 242, 0.28)",
+              textShadowBlur: 4,
             },
             light: {
               color: "#173246",
-              textBorderColor: "rgba(255, 250, 242, 0.96)",
-              textBorderWidth: 4.5,
-              textShadowColor: "rgba(255, 250, 242, 0.98)",
-              textShadowBlur: 10,
+              textBorderColor: "rgba(255, 250, 242, 0.7)",
+              textBorderWidth: 1.8,
+              textShadowColor: "rgba(255, 250, 242, 0.34)",
+              textShadowBlur: 5,
             },
           },
         },
         itemStyle: {
-          borderColor: "rgba(255, 250, 242, 0.9)",
+          borderColor: "rgba(255, 250, 242, 0.62)",
           borderWidth: 1,
         },
         emphasis: {
@@ -468,10 +527,10 @@ export function buildHeatmapOption(
             formatter: (params: any) => formatHeatmapLabelRich(params, visualRange),
           },
           itemStyle: {
-            shadowBlur: 10,
-            shadowColor: "rgba(0, 0, 0, 0.35)",
-            borderColor: "#fffaf2",
-            borderWidth: 1.2,
+            shadowBlur: 6,
+            shadowColor: "rgba(0, 0, 0, 0.22)",
+            borderColor: "rgba(255, 250, 242, 0.7)",
+            borderWidth: 1,
           },
         },
       },
@@ -751,6 +810,7 @@ export function buildQueryChartOption(
         nameGap: 70,
       },
       visualMap: {
+        dimension: 2,
         min: visualRange.min,
         max: visualRange.max,
         show: true,
@@ -767,6 +827,12 @@ export function buildQueryChartOption(
         {
           type: "heatmap",
           data: heatmapData,
+          encode: {
+            x: 0,
+            y: 1,
+            value: 2,
+            tooltip: [2, 3],
+          },
           label: {
             show: false,
             formatter: (params: any) => {
@@ -783,7 +849,7 @@ export function buildQueryChartOption(
             textBorderWidth: 2,
           },
           itemStyle: {
-            borderColor: "rgba(255, 250, 242, 0.9)",
+            borderColor: "rgba(255, 250, 242, 0.62)",
             borderWidth: 1,
           },
           emphasis: {

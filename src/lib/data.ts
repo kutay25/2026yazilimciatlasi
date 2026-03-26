@@ -265,6 +265,7 @@ export const QUERY_FIELD_LABELS: Record<string, string> = {
   gender: "Cinsiyet",
   currency: "Para birimi",
   raises: "Yıllık zam sayısı",
+  isAbroad: "Yurt dışı",
   count: "Örneklem",
   median_salary: "Medyan ücret",
   mean_salary: "Ortalama ücret",
@@ -273,6 +274,7 @@ export const QUERY_FIELD_LABELS: Record<string, string> = {
   max_salary: "Maksimum",
   min_salary: "Minimum",
   share_hasAiTools: "AI kullanım payı",
+  share_isAbroad: "Yurt dışı payı",
   share_foreignCurrency: "Dövizli maaş payı",
 };
 

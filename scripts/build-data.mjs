@@ -628,13 +628,13 @@ function buildSummary(rows, provinceMeta) {
     },
     methodology: {
       salaryRule:
-        "Aralıklı maaş yanıtları sayısal orta noktalarla görselleştirilir. Açık uçlu 400.000+ yanıtları karşılaştırılabilirlik için 425.000 kabul edilir.",
+        "Aralıklı maaş yanıtlarında aralıkları görselleştirmelerde temsil etmek için sayısal orta noktaları kullanıldı. Açık uçlu 400.000+ gelir yanıtlarında karşılaştırılabilirlik için 425.000 kabul edildi.",
       fxRule:
-        "Farklı para birimlerini içeren grafikler düzenlenebilir referans kurları kullanır; bu görünüm kesin ücret dönüşümü değil, modelleme amaçlı bir karşılaştırmadır.",
+        "Farklı para birimlerini karşılaştırmak için yukarıda bahsedilen tarihte yabancı kurların alım fiyatları referans alındı.",
       locationRule:
-        "Türkiye haritası yalnızca yurt içi il bazlı yanıtları kullanır. Yurt dışı yanıtları ise ülke düzeyinde ayrı olarak erişilebilir kalır.",
+        "Türkiye haritası yalnızca yurt içi il bazlı yanıtları kullanıldı. Yurt dışı yanıtları, sadece ülke düzeyinde görselleştirmelerde kullanıldı.",
       sampleRule:
-        "Pek çok görselde çok küçük gruplar bastırılır veya geri planda bırakılır; böylece düşük örneklem gürültüsü anlatının önüne geçmez.",
+        "Görselleştirmelerde varsayılan minimum örneklem boyutu 5 olarak seçildi. Ancak kullanıcılar sorgu editöründe minimum örneklem boyutunu kendileri seçebilmekte.",
     },
     queryIdeas: QUERY_IDEAS,
   };

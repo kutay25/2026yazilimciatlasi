@@ -8,7 +8,9 @@ import {
 import * as echarts from "echarts";
 import ReactECharts from "echarts-for-react";
 import {
+  BOOLEAN_ACCESSORS,
   DEFAULT_FILTERS,
+  FIELD_ACCESSORS,
   aggregateRows,
   applyFilters,
   buildHistogram,
@@ -60,6 +62,26 @@ const COMPANY_SIZE_ORDER = [
 
 const DEFAULT_QUERY =
   "filter currency=TRY | group seniority | metric median(salary), count() | sort -median_salary | min_count 30";
+const QUERY_FILTER_FIELD_ORDER = [
+  "province",
+  "country",
+  "seniority",
+  "role",
+  "roleFamily",
+  "experience",
+  "workMode",
+  "companyType",
+  "companySize",
+  "gender",
+  "currency",
+  "raises",
+  "hasAiTools",
+  "isAbroad",
+];
+const SUPPORTED_QUERY_FILTER_FIELDS = QUERY_FILTER_FIELD_ORDER.filter(
+  (field) => field in FIELD_ACCESSORS || field in BOOLEAN_ACCESSORS,
+);
+const SUPPORTED_QUERY_SHARE_TARGETS = Object.keys(BOOLEAN_ACCESSORS);
 
 type MapMetric = "median" | "p75" | "count";
 
@@ -110,23 +132,23 @@ function formatMetricValue(field: string, value: string | number | null) {
 }
 
 function getSalaryModeTitle(salaryMode: FilterState["salaryMode"]) {
-  return salaryMode === "fx" ? "Referans TRY karşılığı" : "Doğrudan TRY";
+  return salaryMode === "fx" ? "Döviz → TRY çevrimli" : "Yalnızca TRY";
 }
 
 function getSalaryModeExplanation(salaryMode: FilterState["salaryMode"]) {
   return salaryMode === "fx"
-    ? "Farklı para birimlerindeki yanıtlar referans kurla TRY karşılığına çevrilir."
-    : "Yalnızca doğrudan TRY yanıtları kullanılır.";
+    ? "Dövizle bildirilen maaşlar referans kurla TRY'ye çevrildi."
+    : "Yalnızca TRY olarak bildirilen maaşlar gösteriliyor.";
 }
 
 function getSliceScopeLabel(filters: FilterState) {
   const geography =
     filters.geographyScope === "domestic"
-      ? "yurt içi"
+      ? "Türkiye"
       : filters.geographyScope === "abroad"
         ? "yurt dışı"
         : "tüm coğrafya";
-  return `Aktif filtre kesiti, ${geography}`;
+  return `Seçili filtreler · ${geography}`;
 }
 
 function buildReferenceFxNote(summary: AppData["summary"]) {
@@ -157,7 +179,7 @@ function App() {
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [mapMetric, setMapMetric] = useState<MapMetric>("median");
-  const [mapMinCount, setMapMinCount] = useState(8);
+  const [mapMinCount, setMapMinCount] = useState(5);
   const [queryText, setQueryText] = useState(DEFAULT_QUERY);
   const [selectedQueryMetric, setSelectedQueryMetric] = useState<string | null>(null);
 
@@ -346,10 +368,10 @@ function App() {
   const mapOption = useMemo(() => {
     const metricLabel =
       mapMetric === "count"
-        ? "Yanıt hacmi"
+        ? "Yanıt sayısı"
         : mapMetric === "p75"
-          ? "Üst çeyrek ücret"
-          : "Medyan ücret";
+          ? "Üst çeyrek maaş"
+          : "Medyan maaş";
     const formatter = mapMetric === "count" ? formatInteger : formatMoney;
     return buildProvinceMapOption(
       provinceStats.map((entry) => ({
@@ -367,7 +389,7 @@ function App() {
       formatter,
       {
         salaryMode: filters.salaryMode,
-        mapScopeLabel: "Aktif filtre kesitindeki, il bilgisi olan yurt içi yanıtlar",
+        mapScopeLabel: "İl bilgisi olan yurt içi yanıtlar",
       },
     );
   }, [filters.salaryMode, mapMetric, provinceStats]);
@@ -378,24 +400,24 @@ function App() {
     const topSector = aggregateRows(deferredRows, ["companyType"], filters.salaryMode, 20)[0];
     return [
       {
-        title: "Rol ailesi tavanı",
+        title: "En yüksek kazanan rol ailesi",
         value: topRoleFamily ? formatRoleFamilyLabel(topRoleFamily.key) : "—",
         detail: topRoleFamily
-          ? `${formatMoney(topRoleFamily.median)} medyan, n=${formatInteger(topRoleFamily.count)}`
+          ? `Medyan ${formatMoney(topRoleFamily.median)}, ${formatInteger(topRoleFamily.count)} yanıt`
           : "Yeterli veri yok",
       },
       {
-        title: "Haritada zirve",
+        title: "En yüksek kazanan il",
         value: topProvince?.province ?? "—",
         detail: topProvince
-          ? `${formatMoney(topProvince.median)} medyan, n=${formatInteger(topProvince.count)}`
+          ? `Medyan ${formatMoney(topProvince.median)}, ${formatInteger(topProvince.count)} yanıt`
           : "Yeterli veri yok",
       },
       {
-        title: "En yüksek sektör farkı",
+        title: "En yüksek kazanan sektör",
         value: topSector?.key ?? "—",
         detail: topSector
-          ? `${formatMoney(topSector.median)} medyan, n=${formatInteger(topSector.count)}`
+          ? `Medyan ${formatMoney(topSector.median)}, ${formatInteger(topSector.count)} yanıt`
           : "Yeterli veri yok",
       },
     ];
@@ -486,7 +508,7 @@ function App() {
         overallMedian={kpis.median}
         aiShare={kpis.aiAdoptionShare}
         foreignShare={kpis.foreignCurrencyShare}
-        foreignLabel="Dövizli maaş payı"
+        foreignLabel="Dövizle maaş alanlar"
         salaryMode={filters.salaryMode}
         sliceScopeLabel={getSliceScopeLabel(filters)}
         provinces={kpis.provinceCount}
@@ -512,8 +534,8 @@ function App() {
         <section className={filtersExpanded ? "control-panel" : "control-panel is-collapsed"}>
           <div className="control-header">
             <div className="control-header-copy">
-              <span className="control-label">Geçerli görünüm</span>
-              <strong>Şu anda gösterilen kesit</strong>
+              <span className="control-label">Filtreler</span>
+              <strong>Veriyi daraltın</strong>
             </div>
             <div className="control-summary">
               <span className="summary-lead">Şu an:</span>
@@ -542,7 +564,7 @@ function App() {
                   });
                 }}
               >
-                Filtreleri sıfırla
+                Sıfırla
               </button>
             </div>
           </div>
@@ -551,11 +573,11 @@ function App() {
             <div className="control-body">
               <div className="control-grid">
                 <div className="control-group">
-                  <span className="control-label">Odak</span>
+                  <span className="control-label">Ücret modu</span>
                   <SegmentedToggle
                     items={[
-                      { id: "try", label: "Doğrudan TRY" },
-                      { id: "fx", label: "Referans TRY" },
+                      { id: "try", label: "Yalnızca TRY" },
+                      { id: "fx", label: "Döviz → TRY" },
                     ]}
                     activeId={filters.salaryMode}
                     onChange={(value) =>
@@ -578,12 +600,12 @@ function App() {
                   />
                 </div>
                 <div className="control-group">
-                  <span className="control-label">AI araçları</span>
+                  <span className="control-label">AI araç kullanımı</span>
                   <SegmentedToggle
                     items={[
                       { id: "all", label: "Hepsi" },
-                      { id: "with", label: "AI kullanan" },
-                      { id: "without", label: "AI kullanmayan" },
+                      { id: "with", label: "Kullananlar" },
+                      { id: "without", label: "Kullanmayanlar" },
                     ]}
                     activeId={filters.aiScope}
                     onChange={(value) =>
@@ -592,7 +614,7 @@ function App() {
                   />
                 </div>
                 <div className="control-group">
-                  <span className="control-label">Sektör odağı</span>
+                  <span className="control-label">Sektör</span>
                   <select
                     className="surface-select"
                     value={filters.sector}
@@ -657,24 +679,24 @@ function App() {
           <section className="tab-layout">
             <div className="metric-grid">
               <MetricCard
-                label="Medyan ücret"
+                label="Medyan maaş"
                 value={formatMoney(kpis.median)}
-                note={`${getSliceScopeLabel(filters)} • ${getSalaryModeTitle(filters.salaryMode)}`}
+                note={getSalaryModeExplanation(filters.salaryMode)}
               />
               <MetricCard
-                label="Üst çeyrek"
+                label="Üst çeyrek maaş"
                 value={formatMoney(kpis.p75)}
-                note={`Aktif filtre kesiti • ${getSalaryModeTitle(filters.salaryMode)}`}
+                note="Yanıtların %25'i bu değerin üzerinde"
               />
               <MetricCard
                 label="AI araç kullanımı"
                 value={formatPercent(kpis.aiAdoptionShare)}
-                note="Aktif filtre kesiti"
+                note="Seçili filtrelerdeki katılımcılar arasında"
               />
               <MetricCard
-                label="Kapsanan il"
+                label="Kapsanan il sayısı"
                 value={formatInteger(kpis.provinceCount)}
-                note="Aktif filtre kesitinde il bilgisi bulunan yanıtlar"
+                note="İl bilgisi veren katılımcıların dağıldığı iller"
               />
             </div>
 
@@ -690,9 +712,9 @@ function App() {
 
             <div className="chart-grid chart-grid--two">
               <ChartCard
-                title="Gelir dağılımı"
-                kicker="Kesitin maaş yoğunluğu"
-                body="Anket bucket yapıda olduğu için görünüm bir dağılım ısısı gibi okunmalı."
+                title="Maaş dağılımı"
+                kicker="Maaşlar hangi aralıklarda yoğunlaşıyor?"
+                body="Her çubuk, o maaş aralığındaki yanıt sayısını gösterir."
               >
                 <ReactECharts
                   {...chartRuntimeProps}
@@ -701,15 +723,15 @@ function App() {
                 />
               </ChartCard>
               <ChartCard
-                title="Deneyim eğrisi"
-                kicker="Yıl bandına göre medyan"
-                body="Sektörde geçirilen süre net bir fiyat merdiveni yaratıyor."
+                title="Deneyime göre maaş"
+                kicker="Tecrübe arttıkça maaş nasıl değişiyor?"
+                body="Her nokta, o deneyim grubundaki medyan maaşı gösterir."
               >
                 <ReactECharts
                   {...chartRuntimeProps}
                   option={buildLineOption(experienceCurve, formatMoney, {
                     salaryMode: filters.salaryMode,
-                    metricLabel: "Medyan ücret",
+                    metricLabel: "Medyan maaş",
                     metricHelp: getSalaryModeExplanation(filters.salaryMode),
                   })}
                   className="chart"
@@ -719,9 +741,9 @@ function App() {
 
             <div className="chart-grid chart-grid--two">
               <ChartCard
-                title="Rol ailesi x seviye"
-                kicker="Yoğunluğu değil, medyanı okur"
-                body="Renk medyan ücreti gösterir. Hücre etiketleri yalnızca hover anında görünür; böylece yapı daha net okunur."
+                title="Rol ailesi ve seviyeye göre maaş"
+                kicker="Hangi rol-seviye kombinasyonları daha yüksek kazanıyor?"
+                body="Koyu renkler daha yüksek medyan maaşı gösterir. Detaylar için hücrelerin üzerine gelin."
               >
                 <ReactECharts
                   {...chartRuntimeProps}
@@ -739,9 +761,9 @@ function App() {
                 />
               </ChartCard>
               <ChartCard
-                title="Çalışma düzeni"
-                kicker="Uzaktan, hibrit, ofis"
-                body="Aynı aktif kesitte çalışma biçimlerini yan yana karşılaştırır; her çubukta örneklem tooltip içinde görünür."
+                title="Çalışma modeline göre maaş"
+                kicker="Uzaktan, hibrit ve ofis çalışanları ne kadar kazanıyor?"
+                body="Her çubuğun üzerine gelerek yanıt sayısını görebilirsiniz."
               >
                 <ReactECharts
                   {...chartRuntimeProps}
@@ -749,7 +771,7 @@ function App() {
                     color: "#0f766e",
                     horizontal: false,
                     salaryMode: filters.salaryMode,
-                    metricLabel: "Medyan ücret",
+                    metricLabel: "Medyan maaş",
                     metricHelp: getSalaryModeExplanation(filters.salaryMode),
                     categoryLabelFormatter: formatWorkModeLabel,
                   })}
@@ -764,22 +786,22 @@ function App() {
           <section className="tab-layout">
             <div className="section-toolbar">
               <div>
-                <p className="section-kicker">Harita modu</p>
+                <p className="section-kicker">Haritada göster</p>
                 <SegmentedToggle
                   items={[
-                    { id: "median", label: "Medyan" },
+                    { id: "median", label: "Medyan maaş" },
                     { id: "p75", label: "Üst çeyrek" },
-                    { id: "count", label: "Yanıt hacmi" },
+                    { id: "count", label: "Yanıt sayısı" },
                   ]}
                   activeId={mapMetric}
                   onChange={(value) => setMapMetric(value as MapMetric)}
                 />
               </div>
               <label className="range-control">
-                <span>En düşük örneklem</span>
+                <span>En az yanıt sayısı</span>
                 <input
                   type="range"
-                  min={4}
+                  min={5}
                   max={30}
                   value={mapMinCount}
                   onChange={(event) => setMapMinCount(Number.parseInt(event.target.value, 10))}
@@ -790,9 +812,9 @@ function App() {
 
             <div className="chart-grid chart-grid--atlas">
               <ChartCard
-                title="Türkiye maaş atlası"
-                kicker="İle göre ücret görünümü"
-                body="Harita yalnızca il bilgisi olan yurt içi yanıtları kullanır. Renk seçili metriği, tooltip ise hem metriği hem örneklemi açıklar."
+                title="İllere göre maaş haritası"
+                kicker="Hangi illerde maaşlar daha yüksek?"
+                body="Yalnızca il bilgisi veren yurt içi yanıtları kapsar. Detaylar için ilin üzerine gelin."
               >
                 <ReactECharts
                   {...chartRuntimeProps}
@@ -803,8 +825,8 @@ function App() {
 
               <aside className="ranking-panel">
                 <div className="ranking-header">
-                  <span>Öne çıkan iller</span>
-                  <strong>{mapMetric === "count" ? "Yanıt hacmi" : "Gelir seviyesi"}</strong>
+                  <span>İl sıralaması</span>
+                  <strong>{mapMetric === "count" ? "Yanıt sayısına göre" : "Maaş düzeyine göre"}</strong>
                 </div>
                 <div className="ranking-list">
                   {provinceStats.slice(0, 14).map((entry, index) => (
@@ -812,7 +834,7 @@ function App() {
                       <span className="ranking-index">{index + 1}</span>
                       <div>
                         <strong>{entry.province}</strong>
-                        <small>n={formatInteger(entry.count)}</small>
+                        <small>{formatInteger(entry.count)} yanıt</small>
                       </div>
                       <span>
                         {mapMetric === "count"
@@ -829,31 +851,31 @@ function App() {
 
             <div className="chart-grid chart-grid--two">
               <ChartCard
-                title="Şirket büyüklüğü merdiveni"
-                kicker="Takım ölçeği arttıkça maaş ne yapıyor?"
-                body="Aynı aktif kesitte şirket büyüklüğü arttıkça medyan ücretin nasıl değiştiğini gösterir."
+                title="Şirket büyüklüğüne göre maaş"
+                kicker="Daha büyük şirketler daha mı çok ödüyor?"
+                body="Şirket büyüklüğü arttıkça medyan maaşın nasıl değiştiğini gösterir."
               >
                 <ReactECharts
                   {...chartRuntimeProps}
                   option={buildLineOption(companySizeCurve, formatMoney, {
                     salaryMode: filters.salaryMode,
-                    metricLabel: "Medyan ücret",
+                    metricLabel: "Medyan maaş",
                     metricHelp: getSalaryModeExplanation(filters.salaryMode),
                   })}
                   className="chart"
                 />
               </ChartCard>
               <ChartCard
-                title="Sektör karşılaştırması"
-                kicker="Filtre içindeki en güçlü alanlar"
-                body="Sektörleri aynı aktif kesitte medyan ücrete göre sıralar; yorumlarken her satırın örneklemine bakın."
+                title="Sektöre göre maaş"
+                kicker="Hangi sektörler daha yüksek ödüyor?"
+                body="Sektörler medyan maaşa göre sıralanır. Yanıt sayısı için çubukların üzerine gelin."
               >
                 <ReactECharts
                   {...chartRuntimeProps}
                   option={buildBarOption(companyTypeBars, {
                     color: "#c46e3d",
                     salaryMode: filters.salaryMode,
-                    metricLabel: "Medyan ücret",
+                    metricLabel: "Medyan maaş",
                     metricHelp: getSalaryModeExplanation(filters.salaryMode),
                   })}
                   className="chart"
@@ -867,25 +889,25 @@ function App() {
           <section className="tab-layout">
             <div className="chart-grid chart-grid--two">
               <ChartCard
-                title="Rol bazlı lider tablo"
-                kicker="En yüksek medyanlar"
-                body="Düşük örneklemleri eledikten sonra rolleri aynı aktif kesitte medyan ücrete göre sıralar."
+                title="En yüksek kazanan roller"
+                kicker="Hangi iş rolleri en çok kazanıyor?"
+                body="Düşük yanıt sayılı roller çıkarıldıktan sonra medyan maaşa göre sıralanır. Detaylar için çubukların üzerine gelin."
               >
                 <ReactECharts
                   {...chartRuntimeProps}
                   option={buildBarOption(topRoleBars, {
                     color: "#163245",
                     salaryMode: filters.salaryMode,
-                    metricLabel: "Medyan ücret",
+                    metricLabel: "Medyan maaş",
                     metricHelp: getSalaryModeExplanation(filters.salaryMode),
                   })}
                   className="chart chart--tall"
                 />
               </ChartCard>
               <ChartCard
-                title="Sektör x çalışma modu"
-                kicker="Hangi kombinasyonlar öne çıkıyor?"
-                body="Renk medyan ücreti gösterir. Tam değerler ve örneklem sadece hover anında açılır; bu yüzden desen daha temiz görünür."
+                title="Sektör ve çalışma modeli karşılaştırması"
+                kicker="Hangi sektör-çalışma modu kombinasyonları öne çıkıyor?"
+                body="Koyu renkler daha yüksek medyan maaşı gösterir. Detaylar için hücrelerin üzerine gelin."
               >
                 <ReactECharts
                   {...chartRuntimeProps}
@@ -906,9 +928,9 @@ function App() {
 
             <div className="chart-grid chart-grid--two">
               <ChartCard
-                title="Teknoloji ve araç yayılımı"
-                kicker="Kullanım hacmi ve ücret"
-                body="Noktanın yeri medyan ücreti ve kullanım hacmini, tooltip ise örneklemi ve aktif kesit kapsamını açıklar."
+                title="Teknoloji ve araçlara göre maaş"
+                kicker="Hangi teknolojileri kullananlar daha çok kazanıyor?"
+                body="Her nokta bir teknolojiyi temsil eder: yatay eksen kullanım sayısı, dikey eksen medyan maaştır."
               >
                 <ReactECharts
                   {...chartRuntimeProps}
@@ -919,9 +941,9 @@ function App() {
                 />
               </ChartCard>
               <ChartCard
-                title="Bu veriyle en anlamlı sorular"
-                kicker="Ne sorgulamaya değer?"
-                body="Ham veri çok geniş; bu kartlar yüksek sinyalli sorgu yollarını öne çıkarıyor."
+                title="Hazır sorgu önerileri"
+                kicker="Nereden başlayacağınızdan emin değil misiniz?"
+                body="Aşağıdaki sorguları tıklayarak Laboratuvar sekmesinde doğrudan çalıştırabilirsiniz."
               >
                 <div className="query-idea-stack">
                   {data.summary.queryIdeas.map((idea) => (
@@ -951,9 +973,9 @@ function App() {
           <section className="tab-layout">
             <div className="lab-grid">
               <ChartCard
-                title="Mini sorgu dili"
-                kicker="filter -> group -> metric"
-                body="Sorgular üstteki aktif filtrelerin içinde çalışır. Örnek: filter currency=TRY & seniority=Senior | group roleFamily, workMode | metric median(salary), count() | sort -median_salary | min_count 15"
+                title="Sorgu editörü"
+                kicker="Veriyi istediğiniz gibi dilimleyin"
+                body="Sorgular üstteki filtrelerle birlikte çalışır."
               >
                 <div className="query-lab">
                   <textarea
@@ -980,15 +1002,16 @@ function App() {
                       </button>
                     ))}
                   </div>
+                  <QuerySyntaxGuide />
                   {queryExecution.error ? (
                     <div className="query-error">{queryExecution.error}</div>
                   ) : (
                     <div className="query-meta">
                       <span>
-                        {formatInteger(queryExecution.result?.rows.length ?? 0)} satır üretildi
+                        {formatInteger(queryExecution.result?.rows.length ?? 0)} sonuç bulundu
                       </span>
                       <small>
-                        Metrikler: {queryExecution.result?.metricFields.map(formatQueryFieldLabel).join(", ") ?? "Örneklem"}
+                        Gösterilen metrikler: {queryExecution.result?.metricFields.map(formatQueryFieldLabel).join(", ") ?? "Örneklem"}
                       </small>
                     </div>
                   )}
@@ -996,9 +1019,9 @@ function App() {
               </ChartCard>
 
               <ChartCard
-                title="Sorgu çıktısı"
-                kicker="Metrikler arasında geçiş yapılabilir"
-                body="Laboratuvar görünümü, üstteki filtreleri otomatik uygular; yani her sorgu o aktif kesit üzerinde çalışır."
+                title="Sonuçlar"
+                kicker="Birden fazla metrik varsa aralarında geçiş yapabilirsiniz"
+                body="Sorgu sonuçları üstteki filtrelere göre hesaplanır."
               >
                 {queryExecution.result ? (
                   <>
@@ -1032,7 +1055,7 @@ function App() {
                     />
                   </>
                 ) : (
-                  <EmptyState title="Sorgu hata verdi" body={queryExecution.error ?? "Bir hata oluştu."} />
+                  <EmptyState title="Sorgu çalıştırılamadı" body={queryExecution.error ?? "Sorgu söz dizimini kontrol edin."} />
                 )}
               </ChartCard>
             </div>
@@ -1042,17 +1065,17 @@ function App() {
         {activeTab === "method" && (
           <section className="tab-layout">
             <div className="method-grid">
-              <MethodCard title="Temizleme kuralları" body={data.summary.methodology.salaryRule} />
-              <MethodCard title="Kur üzerinden bakış" body={data.summary.methodology.fxRule} />
-              <MethodCard title="Lokasyon mantığı" body={data.summary.methodology.locationRule} />
-              <MethodCard title="Örneklem disiplini" body={data.summary.methodology.sampleRule} />
+              <MethodCard title="Maaş verileri nasıl yorumlandı?" body={data.summary.methodology.salaryRule} />
+              <MethodCard title="Döviz çevrimi nasıl yapıldı?" body={data.summary.methodology.fxRule} />
+              <MethodCard title="Konum bilgisi nasıl belirlendi?" body={data.summary.methodology.locationRule} />
+              <MethodCard title="Minimum örneklem boyutu var mı?" body={data.summary.methodology.sampleRule} />
             </div>
 
             <div className="chart-grid chart-grid--two">
               <ChartCard
-                title="Ham veri kapsamı"
-                kicker="Bu uygulama hangi zeminde duruyor?"
-                body="Bu kart yalnızca genel veri setinin kapsamını anlatır; aktif filtrelerden etkilenmez."
+                title="Veri setinin kapsamı"
+                kicker="Bu veriler neyi kapsıyor?"
+                body="Bu kart tüm anket verilerini özetler, filtrelerden etkilenmez."
               >
                 <ul className="fact-list">
                   <li>
@@ -1060,11 +1083,11 @@ function App() {
                     <strong>{formatInteger(data.summary.totals.responses)}</strong>
                   </li>
                   <li>
-                    <span>TRY yanıtı</span>
+                    <span>TRY ile maaş bildirimi</span>
                     <strong>{formatInteger(data.summary.totals.tryResponses)}</strong>
                   </li>
                   <li>
-                    <span>Yurtdışı yanıtı</span>
+                    <span>Yurt dışından yanıt</span>
                     <strong>{formatInteger(data.summary.totals.abroadResponses)}</strong>
                   </li>
                   <li>
@@ -1072,15 +1095,15 @@ function App() {
                     <strong>{formatInteger(data.summary.totals.provincesCovered)}</strong>
                   </li>
                   <li>
-                    <span>İzlenen teknoloji etiketi</span>
+                    <span>İzlenen teknoloji sayısı</span>
                     <strong>{formatInteger(data.summary.totals.techTagsTracked)}</strong>
                   </li>
                 </ul>
               </ChartCard>
               <ChartCard
-                title="Genel veri seti sinyalleri"
-                kicker="Temel veri sinyalleri"
-                body="Buradaki tüm değerler global veri setine aittir; aktif filtre kesitini değil, bütün anketi özetler."
+                title="Genel rakamlar"
+                kicker="Anketin büyük resmi"
+                body="Filtrelerden bağımsız, tüm veri setine ait özet değerlerdir."
               >
                 <ul className="fact-list">
                   <li>
@@ -1096,11 +1119,11 @@ function App() {
                     <strong>{formatMoney(data.summary.keyNumbers.istanbulPremiumVsOverall)}</strong>
                   </li>
                   <li>
-                    <span>Döviz payı</span>
+                    <span>Dövizle maaş alanlar</span>
                     <strong>{formatPercent(data.summary.keyNumbers.foreignCurrencyShare)}</strong>
                   </li>
                   <li>
-                    <span>AI araç kullanım payı</span>
+                    <span>AI araç kullananlar</span>
                     <strong>{formatPercent(data.summary.keyNumbers.aiToolAdoptionShare)}</strong>
                   </li>
                 </ul>
@@ -1133,10 +1156,9 @@ function Hero(props: {
   return (
     <header className="hero">
       <div className="hero-copy">
-        {/* <span className="hero-kicker">2026 Yazılım Sektörü Maaş Atlası</span> */}
         <h1>2026 Yazılımcı Maaş Atlası</h1>
         <p className="hero-context">
-          Şu an görülen kartlar {props.sliceScopeLabel.toLowerCase()} için hesaplanır. 
+          Aşağıdaki veriler seçtiğiniz filtrelere göre güncellenir.
           <br/>Ücret modu: {" "}
           <strong>{getSalaryModeTitle(props.salaryMode)}</strong>.
         </p>
@@ -1182,32 +1204,32 @@ function Hero(props: {
         <div>
           <span>Toplam yanıt</span>
           <strong>{formatCompact(props.totalResponses)}</strong>
-          <small>Global veri seti</small>
+          <small>Tüm anket verisi</small>
         </div>
         <div>
-          <span>Aktif kesit</span>
+          <span>Gösterilen yanıt</span>
           <strong>{formatCompact(props.filteredResponses)}</strong>
-          <small>Şu anki filtreler</small>
+          <small>Seçili filtrelerle</small>
         </div>
         <div>
-          <span>Medyan ücret</span>
+          <span>Medyan maaş</span>
           <strong>{formatMoney(props.overallMedian)}</strong>
           <small>{getSalaryModeTitle(props.salaryMode)}</small>
         </div>
         <div>
           <span>AI kullanımı</span>
           <strong>{formatPercent(props.aiShare)}</strong>
-          <small>Aktif filtre kesiti</small>
+          <small>Seçili filtrelerle</small>
         </div>
         <div>
           <span>{props.foreignLabel}</span>
           <strong>{formatPercent(props.foreignShare)}</strong>
-          <small>Aktif filtre kesiti</small>
+          <small>Seçili filtrelerle</small>
         </div>
         <div>
           <span>Kapsanan il</span>
           <strong>{formatInteger(props.provinces)}</strong>
-          <small>Aktif filtre kesiti</small>
+          <small>Seçili filtrelerle</small>
         </div>
       </div>
     </header>
@@ -1322,6 +1344,96 @@ function QueryTable(props: {
   );
 }
 
+function QuerySyntaxGuide() {
+  const [isOpen, setIsOpen] = useState(false);
+  const filterFieldList = SUPPORTED_QUERY_FILTER_FIELDS.map(
+    (field) => `${field} (${formatQueryFieldLabel(field)})`,
+  ).join(", ");
+  const shareTargetList = SUPPORTED_QUERY_SHARE_TARGETS.map(
+    (target) => `${target} (${formatQueryFieldLabel(target)})`,
+  ).join(", ");
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isOpen]);
+
+  return (
+    <>
+      <button
+        className="ghost-button query-help-trigger"
+        type="button"
+        onClick={() => setIsOpen(true)}
+      >
+        Sorgu dili yardımı
+      </button>
+
+      {isOpen && (
+        <div
+          className="query-help-modal-backdrop"
+          onClick={() => setIsOpen(false)}
+        >
+          <div
+            className="query-help-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="query-help-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="query-help-modal-header">
+              <strong id="query-help-title">Sorgu Editörü'nde kullanılabilenler</strong>
+              <button
+                className="ghost-button query-help-close"
+                type="button"
+                onClick={() => setIsOpen(false)}
+              >
+                Kapat
+              </button>
+            </div>
+            <ul className="query-help-list">
+              <li>
+                <code>Bölümler:</code> <code>filter</code> | <code>group</code> | <code>metric</code>{" "}
+                | <code>sort</code> | <code>min_count</code> | <code>limit</code>
+              </li>
+              <li>
+                <code>filter</code> operatörleri: <code>=</code>, <code>!=</code>, <code>~</code>,{" "}
+                <code>in(...)</code>
+              </li>
+              <li>
+                <code>filter</code> alanları: {filterFieldList}
+              </li>
+              <li>
+                <code>group</code>: alanları virgülle ayırın. Örnek:{" "}
+                <code>group roleFamily, workMode</code>
+              </li>
+              <li>
+                <code>metric</code>: <code>count()</code>, <code>median(salary)</code>,{" "}
+                <code>mean(salary)</code>, <code>p25(salary)</code>, <code>p75(salary)</code>,{" "}
+                <code>min(salary)</code>, <code>max(salary)</code>, <code>share(...)</code>
+              </li>
+              <li>
+                <code>share(...)</code> hedefleri: {shareTargetList}
+              </li>
+              <li>
+                <code>sort</code>: başına <code>-</code> koyarsanız azalan sıralar. Örnek:{" "}
+                <code>sort -median_salary</code>
+              </li>
+            </ul>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function MethodCard(props: { title: string; body: string }) {
   return (
     <article className="method-card">
@@ -1336,8 +1448,8 @@ function LoadingState() {
     <div className="status-shell">
       <div className="status-card">
         <span>Yükleniyor</span>
-        <h1>Veri atlası hazırlanıyor.</h1>
-        <p>İşlenmiş anket dosyaları ve harita katmanı belleğe alınıyor.</p>
+        <h1>Veriler hazırlanıyor…</h1>
+        <p>Anket verileri ve harita yükleniyor, birkaç saniye sürebilir.</p>
       </div>
     </div>
   );
@@ -1348,7 +1460,7 @@ function ErrorState(props: { message: string }) {
     <div className="status-shell">
       <div className="status-card status-card--error">
         <span>Hata</span>
-        <h1>Uygulama yüklenemedi.</h1>
+        <h1>Veriler yüklenemedi</h1>
         <p>{props.message}</p>
       </div>
     </div>
