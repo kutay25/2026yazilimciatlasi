@@ -171,14 +171,16 @@ export function buildHistogramOption(
         ]);
       },
     },
-    grid: { left: 16, right: 12, bottom: 48, top: 20, containLabel: true },
+    grid: { left: 16, right: 12, bottom: 64, top: 20, containLabel: true },
     xAxis: {
       type: "category",
       data: histogram.map((item) => item.label),
       axisLine: { lineStyle: { color: "#cbbda8" } },
       axisLabel: {
         ...axisLabelStyle(),
-        interval: Math.max(0, Math.floor(histogram.length / 8)),
+        interval: Math.max(0, Math.floor(histogram.length / 6)),
+        rotate: 18,
+        hideOverlap: true,
       },
     },
     yAxis: {

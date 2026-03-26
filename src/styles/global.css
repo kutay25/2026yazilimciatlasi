@@ -266,6 +266,8 @@ button {
   display: flex;
   gap: 10px;
   overflow-x: auto;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
   padding: 10px;
   border: 1px solid rgba(255, 255, 255, 0.8);
   border-radius: 999px;
@@ -291,6 +293,7 @@ button {
   display: inline-flex;
   flex-direction: column;
   align-items: flex-start;
+  scroll-snap-align: start;
   gap: 4px;
   min-width: 160px;
   padding: 12px 16px;
@@ -857,12 +860,64 @@ button {
     padding: 18px;
   }
 
+  .hero {
+    gap: 18px;
+    border-radius: 28px;
+  }
+
+  .hero h1 {
+    font-size: clamp(2.15rem, 9vw, 3rem);
+    line-height: 0.96;
+  }
+
+  .hero-context {
+    padding: 12px;
+    font-size: 0.96rem;
+  }
+
+  .hero-sub-lines {
+    gap: 6px;
+  }
+
+  .hero-attribution-label,
+  .hero-attribution-link {
+    font-size: 12.75px;
+  }
+
+  .hero-reference-chip,
+  .hero-reference-date {
+    font-size: 11px;
+  }
+
+  .tab-bar {
+    gap: 8px;
+    padding: 8px;
+  }
+
   .tab-button {
-    min-width: 138px;
+    min-width: 124px;
+    padding: 10px 12px;
+  }
+
+  .tab-button span {
+    font-size: 9px;
+  }
+
+  .tab-button strong {
+    font-size: 0.9rem;
+  }
+
+  .control-header {
+    gap: 14px;
+  }
+
+  .control-header-copy strong {
+    font-size: 1.05rem;
   }
 
   .hero-metrics {
     grid-template-columns: 1fr;
+    gap: 12px;
   }
 
   .control-actions,
@@ -875,21 +930,48 @@ button {
   }
 
   .control-summary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
     gap: 6px;
+  }
+
+  .summary-lead {
+    grid-column: 1 / -1;
   }
 
   .summary-pill {
     font-size: 0.8rem;
     padding: 7px 10px;
+    text-align: center;
+  }
+
+  .control-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .ghost-button {
+    justify-content: center;
   }
 
   .chart,
   .chart--tall {
-    height: 300px;
+    height: 280px;
   }
 
   .chart--map {
-    height: 400px;
+    height: 360px;
+  }
+
+  .chart-card-header h2 {
+    font-size: 1.65rem;
+  }
+
+  .chart-card-header p {
+    font-size: 0.96rem;
+    line-height: 1.55;
   }
 
   .query-meta {
@@ -899,5 +981,212 @@ button {
 
   .query-table {
     min-width: 460px;
+  }
+}
+
+@media (max-width: 560px) {
+  .page-shell {
+    width: min(100vw - 16px, 1440px);
+    padding: 10px 0 32px;
+  }
+
+  .hero,
+  .chart-card,
+  .control-panel,
+  .section-toolbar,
+  .ranking-panel {
+    padding: 14px;
+    border-radius: 22px;
+  }
+
+  .hero {
+    gap: 14px;
+  }
+
+  .hero h1 {
+    font-size: clamp(1.95rem, 10vw, 2.65rem);
+    line-height: 0.98;
+  }
+
+  .hero-context {
+    padding: 10px 12px;
+    border-radius: 14px;
+    font-size: 0.94rem;
+    line-height: 1.55;
+  }
+
+  .hero-sub-lines {
+    gap: 4px;
+  }
+
+  .hero-attribution-label,
+  .hero-attribution-link {
+    font-size: 12px;
+  }
+
+  .hero-reference-chip,
+  .hero-reference-date {
+    font-size: 10.25px;
+    letter-spacing: 0.05em;
+  }
+
+  .hero-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .hero-metrics div {
+    padding: 14px;
+    border-radius: 16px;
+  }
+
+  .hero-metrics strong {
+    font-size: 1.2rem;
+  }
+
+  .hero-metrics small {
+    font-size: 0.76rem;
+  }
+
+  .tab-content {
+    margin-top: 18px;
+  }
+
+  .tab-layout,
+  .metric-grid,
+  .insight-grid,
+  .chart-grid,
+  .method-grid,
+  .lab-grid {
+    gap: 14px;
+  }
+
+  .tab-bar {
+    padding: 7px;
+    gap: 6px;
+  }
+
+  .tab-button {
+    min-width: 114px;
+    padding: 9px 10px;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .tab-button span {
+    font-size: 8.5px;
+    width: 100%;
+    text-align: center;
+  }
+
+  .tab-button strong {
+    font-size: 0.84rem;
+    width: 100%;
+    text-align: center;
+  }
+
+  .control-panel {
+    margin-top: 10px;
+    gap: 12px;
+  }
+
+  .control-header {
+    gap: 12px;
+  }
+
+  .control-header-copy strong {
+    font-size: 0.98rem;
+    line-height: 1.05;
+  }
+
+  .control-summary {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .summary-lead {
+    width: 100%;
+    margin-bottom: 2px;
+  }
+
+  .summary-pill {
+    padding: 6px 9px;
+    border-radius: 14px;
+    font-size: 0.74rem;
+    line-height: 1.25;
+    text-align: left;
+  }
+
+  .control-actions {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .segment,
+  .filter-chip,
+  .ghost-button,
+  .surface-select {
+    padding: 8px 11px;
+  }
+
+  .metric-card,
+  .insight-card,
+  .method-card {
+    padding: 16px;
+  }
+
+  .metric-card strong {
+    margin-top: 8px;
+    font-size: 1.45rem;
+  }
+
+  .metric-card p,
+  .insight-card p,
+  .method-card p,
+  .chart-card-header p {
+    font-size: 0.93rem;
+    line-height: 1.5;
+  }
+
+  .chart-card {
+    gap: 14px;
+  }
+
+  .chart-card-header {
+    gap: 6px;
+  }
+
+  .chart-card-header h2 {
+    font-size: 1.42rem;
+    line-height: 1.08;
+  }
+
+  .chart {
+    height: 250px;
+  }
+
+  .chart--tall {
+    height: 290px;
+  }
+
+  .chart--map {
+    height: 320px;
+  }
+
+  .section-toolbar {
+    gap: 12px;
+  }
+
+  .range-control {
+    gap: 8px;
+    font-size: 0.88rem;
+  }
+
+  .query-textarea {
+    min-height: 160px;
+    padding: 14px;
   }
 }
